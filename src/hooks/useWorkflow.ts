@@ -40,6 +40,22 @@ export function useWorkflow() {
     setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, ...updates } : s)));
   }, []);
 
+  const addStepToColumn = useCallback((type: StepType, title: string, column: ColumnId, index: number) => {
+    const id = `s${nextId++}`;
+    setSteps((prev) => {
+      const colSteps = prev
+        .filter((s) => s.column === column)
+        .sort((a, b) => a.order - b.order);
+      const clampedIndex = Math.max(0, Math.min(index, colSteps.length));
+      const newStep: Step = { id, title, type, column, order: clampedIndex };
+      colSteps.splice(clampedIndex, 0, newStep);
+      colSteps.forEach((s, i) => (s.order = i));
+      const otherSteps = prev.filter((s) => s.column !== column);
+      return [...otherSteps, ...colSteps];
+    });
+    setSelectedStepId(id);
+  }, []);
+
   const moveStep = useCallback((stepId: string, toColumn: ColumnId, toIndex: number) => {
     setSteps((prev) => {
       const step = prev.find((s) => s.id === stepId);
@@ -86,6 +102,7 @@ export function useWorkflow() {
     setSelectedStepId,
     setSelectedColumn,
     addStep,
+    addStepToColumn,
     removeStep,
     updateStep,
     moveStep,

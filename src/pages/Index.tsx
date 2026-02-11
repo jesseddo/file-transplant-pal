@@ -44,6 +44,7 @@ const Index = () => {
               onSelectColumn={wf.setSelectedColumn}
               onRemoveStep={wf.removeStep}
               onMoveStep={wf.moveStep}
+              onAddStepToColumn={wf.addStepToColumn}
             />
 
             {wf.selectedStep ? (
