@@ -113,7 +113,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [steps.map(s => s.id).join(",")]);
 
-  // Ctrl+wheel zoom
+  // Wheel scroll: horizontal pan (no ctrl), zoom (with ctrl)
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -121,6 +121,12 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         setZoom((z) => Math.min(2, Math.max(0.3, z - e.deltaY * 0.003)));
+      } else {
+        e.preventDefault();
+        setPan((p) => ({
+          x: p.x - e.deltaX - e.deltaY,
+          y: p.y,
+        }));
       }
     };
     el.addEventListener("wheel", handler, { passive: false });
