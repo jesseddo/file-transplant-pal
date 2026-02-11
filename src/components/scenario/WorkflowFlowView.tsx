@@ -37,9 +37,9 @@ interface EndNodeInfo {
 const COLUMN_ORDER: ColumnId[] = ["intro", "simulation", "review"];
 const LANE_X_START = 80;
 const LANE_Y_START = 60;
-const COLUMN_GAP = 120; // gap between column groups
-const NODE_X_GAP = 320; // horizontal gap between nodes within main path
-const NODE_Y_GAP = 140; // vertical gap between rows
+const COLUMN_GAP = 180; // gap between column groups
+const NODE_X_GAP = 360; // horizontal gap between nodes within main path
+const NODE_Y_GAP = 180; // vertical gap between rows
 
 const BRANCH_COLORS = [
   "hsl(var(--primary))",
@@ -72,23 +72,21 @@ function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
 
   // Find the "main path" — follow linear connections and first branch choices
   const mainPathIds = new Set<string>();
+  const mainPathOrder: string[] = [];
   const flatOrder = COLUMN_ORDER.flatMap((col) => byCol[col]);
   if (flatOrder.length > 0) {
-    // Walk from first step, following linear edges or first branch
     const visited = new Set<string>();
     let current: string | null = flatOrder[0].id;
     while (current && !visited.has(current)) {
       visited.add(current);
       mainPathIds.add(current);
-      // Find outgoing connections from current
+      mainPathOrder.push(current);
       const outgoing = conns.filter((c) => c.fromId === current && c.toId !== "__end__");
       if (outgoing.length === 0) break;
-      // Prefer the linear connection, then the first branch
       const linear = outgoing.find((c) => c.type === "linear");
       if (linear) {
         current = linear.toId;
       } else {
-        // First branch (index 0)
         const first = outgoing.sort((a, b) => (a.branchIndex ?? 0) - (b.branchIndex ?? 0))[0];
         current = first?.toId ?? null;
       }
@@ -103,22 +101,28 @@ function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
     }
   });
 
-  // Position main path nodes: column-grouped, left to right
+  // Position main path nodes: column-grouped, vertical stacking within columns
   let xCursor = LANE_X_START;
   let lastCol: ColumnId | null = null;
-  const mainPathOrder = flatOrder.filter((s) => mainPathIds.has(s.id));
-  const branchSteps = flatOrder.filter((s) => branchTargets.has(s.id));
+  const colYCursors: Record<string, number> = {};
 
-  mainPathOrder.forEach((step) => {
+  const mainSteps = mainPathOrder.map((id) => steps.find((s) => s.id === id)!).filter(Boolean);
+
+  mainSteps.forEach((step) => {
     if (lastCol !== null && step.column !== lastCol) {
-      xCursor += COLUMN_GAP; // extra gap between columns
+      xCursor += COLUMN_GAP + NODE_X_GAP;
     }
-    positions[step.id] = { x: xCursor, y: LANE_Y_START };
-    xCursor += NODE_X_GAP;
+    const colKey = step.column;
+    if (colYCursors[colKey] === undefined) {
+      colYCursors[colKey] = LANE_Y_START;
+    }
+    positions[step.id] = { x: xCursor, y: colYCursors[colKey] };
+    colYCursors[colKey] += NODE_Y_GAP;
+    // Don't advance xCursor for same-column nodes; only advance when column changes
     lastCol = step.column;
   });
 
-  // Position branch targets: below their source decision node, fanned out
+  // Position branch targets: below and to the right of their source decision node
   const decisionBranches: Record<string, string[]> = {};
   conns.forEach((c) => {
     if (c.type === "branch" && c.toId !== "__end__" && branchTargets.has(c.toId)) {
@@ -135,14 +139,15 @@ function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
     targets.forEach((targetId, idx) => {
       if (positions[targetId]) return; // already placed
       positions[targetId] = {
-        x: sourcePos.x + (idx - (targets.length - 1) / 2) * NODE_X_GAP,
-        y: sourcePos.y + NODE_Y_GAP,
+        x: sourcePos.x + NODE_X_GAP / 2,
+        y: sourcePos.y + NODE_Y_GAP + idx * NODE_Y_GAP,
       };
     });
   });
 
-  // Any remaining steps not yet positioned (orphans) — stack below
-  let orphanY = LANE_Y_START + NODE_Y_GAP * 2;
+  // Any remaining steps not yet positioned (orphans) — stack below everything
+  const allYValues = Object.values(positions).map((p) => p.y);
+  let orphanY = allYValues.length > 0 ? Math.max(...allYValues) + NODE_Y_GAP : LANE_Y_START + NODE_Y_GAP * 2;
   let orphanX = LANE_X_START;
   flatOrder.forEach((step) => {
     if (!positions[step.id]) {
@@ -150,6 +155,24 @@ function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
       orphanX += NODE_X_GAP;
     }
   });
+
+  // Collision avoidance pass: nudge overlapping nodes down
+  const nodeIds = Object.keys(positions);
+  const pad = 40;
+  // Sort by Y then X for a predictable sweep
+  nodeIds.sort((a, b) => positions[a].y - positions[b].y || positions[a].x - positions[b].x);
+  for (let i = 0; i < nodeIds.length; i++) {
+    for (let j = i + 1; j < nodeIds.length; j++) {
+      const a = positions[nodeIds[i]];
+      const b = positions[nodeIds[j]];
+      const overlapX = a.x < b.x + NODE_W + pad && b.x < a.x + NODE_W + pad;
+      const overlapY = a.y < b.y + NODE_H + pad && b.y < a.y + NODE_H + pad;
+      if (overlapX && overlapY) {
+        // Push j down
+        b.y = a.y + NODE_H + pad;
+      }
+    }
+  }
 
   return positions;
 }
@@ -299,6 +322,8 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
   const [endNodeConfigs, setEndNodeConfigs] = useState<Record<string, { action: string; message: string }>>({});
   const [activeEndPopover, setActiveEndPopover] = useState<string | null>(null);
 
+  const hasAutoFitted = useRef(false);
+
   const [dragging, setDragging] = useState<{ stepId: string; startMouse: { x: number; y: number }; startPos: { x: number; y: number } } | null>(null);
   const hasDragged = useRef(false);
   const [panning, setPanning] = useState<{ startMouse: { x: number; y: number }; startPan: { x: number; y: number } } | null>(null);
@@ -327,6 +352,16 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [steps.map(s => s.id).join(",")]);
+
+  // Auto fit-to-view on first mount
+  useEffect(() => {
+    if (Object.keys(positions).length > 0 && !hasAutoFitted.current) {
+      requestAnimationFrame(() => {
+        handleFitToContent();
+        hasAutoFitted.current = true;
+      });
+    }
+  }, [positions]);
 
   // Space key listener
   useEffect(() => {
@@ -459,9 +494,14 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
           const fromPos = positions[conn.fromId];
           if (fromPos) {
             const yOff = conn.branchIndex !== undefined ? BRANCH_HANDLE_TOP_START + conn.branchIndex * BRANCH_HANDLE_SPACING : NODE_H / 2;
+            // Count how many end nodes already exist from this source to stack them
+            const existingEndCount = Object.keys(positions).filter(
+              (k) => k.startsWith("__end__") && positions[k] &&
+                Math.abs(positions[k].x - (fromPos.x + NODE_W + 200)) < 10
+            ).length;
             setPositions((prev) => ({
               ...prev,
-              [endId]: { x: fromPos.x + NODE_W + 160, y: fromPos.y + yOff + 60 },
+              [endId]: { x: fromPos.x + NODE_W + 200, y: fromPos.y + yOff + 80 + existingEndCount * 50 },
             }));
           }
         }
