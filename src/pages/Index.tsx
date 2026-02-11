@@ -50,6 +50,7 @@ const Index = () => {
             {wf.selectedStep ? (
               <InspectorPanel
                 step={wf.selectedStep}
+                allSteps={wf.steps}
                 onClose={() => wf.setSelectedStepId(null)}
                 onUpdate={wf.updateStep}
               />

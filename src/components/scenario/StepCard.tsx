@@ -1,5 +1,5 @@
-import { X, GripVertical } from "lucide-react";
-import { Step, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS } from "@/types/workflow";
+import { X, GripVertical, AlertCircle } from "lucide-react";
+import { Step, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid } from "@/types/workflow";
 import { DragEvent } from "react";
 
 interface StepCardProps {
@@ -13,6 +13,9 @@ export function StepCard({ step, isSelected, onSelect, onRemove }: StepCardProps
   const category = STEP_TYPE_CATEGORY[step.type];
   const badgeClass = CATEGORY_BADGE_CLASS[category];
   const isInterruption = step.type === "interruption";
+  const isDecision = step.type === "decision-checkpoint";
+  const choiceCount = step.choices?.length ?? 0;
+  const isIncomplete = isDecision && !isDecisionCheckpointValid(step);
 
   const handleDragStart = (e: DragEvent) => {
     e.dataTransfer.setData("text/plain", step.id);
@@ -59,7 +62,9 @@ export function StepCard({ step, isSelected, onSelect, onRemove }: StepCardProps
       onDragEnd={handleDragEnd}
       onClick={onSelect}
       className={`relative group rounded-lg border-2 cursor-grab active:cursor-grabbing transition-all ${
-        isSelected
+        isIncomplete
+          ? "border-destructive/60 bg-destructive/5"
+          : isSelected
           ? "border-primary bg-primary/5 shadow-md"
           : "border-[hsl(var(--step-border))] bg-card hover:border-primary/40 hover:shadow-sm"
       }`}
@@ -77,9 +82,19 @@ export function StepCard({ step, isSelected, onSelect, onRemove }: StepCardProps
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
-        <span className={`inline-block mt-1.5 ml-5 px-2 py-0.5 rounded text-[10px] font-medium ${badgeClass}`}>
-          {STEP_TYPE_LABELS[step.type]}
-        </span>
+        <div className="flex items-center gap-1.5 mt-1.5 ml-5">
+          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${badgeClass}`}>
+            {STEP_TYPE_LABELS[step.type]}
+          </span>
+          {isDecision && (
+            <span className="text-[10px] text-muted-foreground">
+              {choiceCount} {choiceCount === 1 ? "choice" : "choices"}
+            </span>
+          )}
+          {isIncomplete && (
+            <AlertCircle className="w-3.5 h-3.5 text-destructive shrink-0" />
+          )}
+        </div>
       </div>
     </div>
   );
