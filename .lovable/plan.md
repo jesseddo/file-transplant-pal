@@ -1,35 +1,26 @@
 
 
-# Open Edit Logic Modal on Node Click (for Decision Steps)
+# Fix Click vs Drag Sensitivity on Workflow Nodes
 
-## Summary
+## Problem
 
-Remove the separate "Edit logic" button from decision cards. Instead, clicking a decision node directly opens the Edit Logic modal. The modal will also pre-populate with any existing routing rules so users see current branch configuration immediately.
+Clicking a decision node opens the Edit Logic modal, but even a tiny mouse movement during a drag attempt triggers the modal because the code only checks `if (!dragging)` -- which is true at the moment of `mousedown` before dragging state is set.
+
+## Solution
+
+Track whether a meaningful drag occurred by measuring the distance between `mousedown` and `mouseup`. Only treat it as a "click" if the mouse moved less than 5 pixels.
 
 ## Changes
 
 ### File: `src/components/scenario/WorkflowFlowView.tsx`
 
-1. **Change node click behavior for decision steps**: In the `onClick` handler on each node card (line 397-399), check if the step is a decision step with choices. If so, open the Edit Logic modal instead of just selecting it. Non-decision steps continue to call `onSelectStep` as before.
+1. **Add a `hasDragged` ref**: Use a `useRef<boolean>(false)` to track whether the mouse moved beyond a 5px threshold during the current drag gesture.
 
-2. **Remove the "Edit logic" button**: Delete the `<Button>` element (lines 464-475) that currently triggers the modal from inside the card. The choice list (colored dots + labels) stays visible on the card -- only the button is removed.
+2. **Set `hasDragged` in mouse move handler**: Inside the `handleMove` function (in the `useEffect` that handles `mousemove`), when `dragging` is active, calculate the total distance from `dragging.startMouse` to the current mouse position. If it exceeds 5px, set `hasDragged.current = true`.
 
-3. **Keep branch list visible on card**: The choice dots and labels remain rendered on the card so users can see at a glance which branches exist before clicking.
+3. **Reset `hasDragged` on mouse down**: In `handleNodeMouseDown`, reset `hasDragged.current = false`.
 
-### File: `src/components/scenario/EditLogicModal.tsx`
+4. **Guard the click handler**: In the node's `onClick`, change `if (!dragging)` to `if (!dragging && !hasDragged.current)`. This prevents the modal from opening after a drag gesture.
 
-4. **Auto-populate rules from existing choices**: When the modal opens and `routingRules` is empty, auto-generate initial rules from `step.choices` that have a `nextStepId` set. This way, if routing was previously configured via the Inspector panel's "Then go to..." selectors, those rules appear pre-filled in the modal.
-
-Update the `useEffect` initialization (lines 34-39):
-- If `step.routingRules` has entries, use those (current behavior)
-- Otherwise, map `step.choices` into rules: for each choice with a `nextStepId`, create `{ choiceId: choice.id, nextStepId: choice.nextStepId }`
-- This ensures existing branch data is shown on first open
-
-## Behavior Summary
-
-| Step type | Click action |
-|-----------|-------------|
-| Normal step | Select step (existing behavior) |
-| Decision step with choices | Open Edit Logic modal |
-| Decision step without choices | Select step |
+5. **Reset on mouse up**: In the `handleUp` function, reset `hasDragged.current = false` after processing.
 
