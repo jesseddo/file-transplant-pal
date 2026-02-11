@@ -133,6 +133,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
   const [editLogicStep, setEditLogicStep] = useState<Step | null>(null);
 
   const [dragging, setDragging] = useState<{ stepId: string; startMouse: { x: number; y: number }; startPos: { x: number; y: number } } | null>(null);
+  const hasDragged = useRef(false);
   const [panning, setPanning] = useState<{ startMouse: { x: number; y: number }; startPan: { x: number; y: number } } | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
 
@@ -197,6 +198,8 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
       if (dragging) {
         const dx = (e.clientX - dragging.startMouse.x) / zoom;
         const dy = (e.clientY - dragging.startMouse.y) / zoom;
+        const dist = Math.sqrt((e.clientX - dragging.startMouse.x) ** 2 + (e.clientY - dragging.startMouse.y) ** 2);
+        if (dist > 5) hasDragged.current = true;
         setPositions((prev) => ({
           ...prev,
           [dragging.stepId]: { x: dragging.startPos.x + dx, y: dragging.startPos.y + dy },
@@ -211,6 +214,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
         const pos = positions[dragging.stepId];
         if (pos) onUpdateStep(dragging.stepId, { ui: { position: pos } });
         setDragging(null);
+        setTimeout(() => { hasDragged.current = false; }, 0);
       }
       if (panning) setPanning(null);
     };
@@ -223,6 +227,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     e.stopPropagation();
     const pos = positions[stepId];
     if (!pos) return;
+    hasDragged.current = false;
     setDragging({ stepId, startMouse: { x: e.clientX, y: e.clientY }, startPos: { ...pos } });
   };
 
@@ -395,7 +400,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
               }}
               onMouseDown={(e) => handleNodeMouseDown(e, step.id)}
               onClick={(e) => {
-                if (!dragging) {
+                if (!dragging && !hasDragged.current) {
                   e.stopPropagation();
                   if (isDecision && step.choices && step.choices.length > 0) {
                     setEditLogicStep(step);
