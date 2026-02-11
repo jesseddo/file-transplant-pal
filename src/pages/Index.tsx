@@ -4,6 +4,7 @@ import { ScenarioHeader } from "@/components/scenario/ScenarioHeader";
 import { WorkflowCanvas } from "@/components/scenario/WorkflowCanvas";
 import { ActionsPanel } from "@/components/scenario/ActionsPanel";
 import { InspectorPanel } from "@/components/scenario/InspectorPanel";
+import { WorkflowFlowView } from "@/components/scenario/WorkflowFlowView";
 import { useWorkflow } from "@/hooks/useWorkflow";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -21,7 +22,7 @@ const Index = () => {
         <div className="border-b border-border bg-card px-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="bg-transparent h-10 p-0 gap-4">
-              {["Design", "Dependencies", "Settings", "Preview"].map((t) => (
+              {["Design", "Workflow", "Dependencies", "Settings", "Preview"].map((t) => (
                 <TabsTrigger
                   key={t}
                   value={t.toLowerCase()}
@@ -60,7 +61,26 @@ const Index = () => {
           </div>
         )}
 
-        {activeTab !== "design" && (
+        {activeTab === "workflow" && (
+          <div className="flex-1 flex min-h-0 overflow-hidden">
+            <WorkflowFlowView
+              steps={wf.steps}
+              selectedStepId={wf.selectedStepId}
+              onSelectStep={wf.setSelectedStepId}
+            />
+
+            {wf.selectedStep && (
+              <InspectorPanel
+                step={wf.selectedStep}
+                allSteps={wf.steps}
+                onClose={() => wf.setSelectedStepId(null)}
+                onUpdate={wf.updateStep}
+              />
+            )}
+          </div>
+        )}
+
+        {activeTab !== "design" && activeTab !== "workflow" && (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <p className="text-sm">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} tab — coming soon</p>
           </div>
