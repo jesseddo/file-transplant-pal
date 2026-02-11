@@ -4,7 +4,6 @@ import { ScenarioHeader } from "@/components/scenario/ScenarioHeader";
 import { WorkflowCanvas } from "@/components/scenario/WorkflowCanvas";
 import { ActionsPanel } from "@/components/scenario/ActionsPanel";
 import { InspectorPanel } from "@/components/scenario/InspectorPanel";
-import { ConnectionModal } from "@/components/scenario/ConnectionModal";
 import { useWorkflow } from "@/hooks/useWorkflow";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -19,7 +18,6 @@ const Index = () => {
       <div className="flex-1 flex flex-col min-w-0">
         <ScenarioHeader />
 
-        {/* Tabs */}
         <div className="border-b border-border bg-card px-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="bg-transparent h-10 p-0 gap-4">
@@ -36,23 +34,15 @@ const Index = () => {
           </Tabs>
         </div>
 
-        {/* Design content */}
         {activeTab === "design" && (
           <div className="flex-1 flex min-h-0 overflow-hidden">
             <WorkflowCanvas
               steps={wf.steps}
-              connections={wf.connections}
               selectedStepId={wf.selectedStepId}
               selectedColumn={wf.selectedColumn}
-              connectingFrom={wf.connectingFrom}
-              selectedConnectionId={wf.selectedConnectionId}
               onSelectStep={wf.setSelectedStepId}
               onSelectColumn={wf.setSelectedColumn}
               onRemoveStep={wf.removeStep}
-              onStartConnect={wf.startConnect}
-              onFinishConnect={wf.finishConnect}
-              onCancelConnect={wf.cancelConnect}
-              onSelectConnection={wf.setSelectedConnectionId}
               onMoveStep={wf.moveStep}
             />
 
@@ -74,17 +64,6 @@ const Index = () => {
           </div>
         )}
       </div>
-
-      {/* Connection editor modal */}
-      {wf.selectedConnection && (
-        <ConnectionModal
-          connection={wf.selectedConnection}
-          steps={wf.steps}
-          onClose={() => wf.setSelectedConnectionId(null)}
-          onUpdate={wf.updateConnection}
-          onRemove={wf.removeConnection}
-        />
-      )}
     </div>
   );
 };
