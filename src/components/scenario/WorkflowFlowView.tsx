@@ -35,9 +35,11 @@ interface EndNodeInfo {
 }
 
 const COLUMN_ORDER: ColumnId[] = ["intro", "simulation", "review"];
-const LANE_X_START = 100;
-const LANE_X_GAP = 280;
-const LANE_Y_CENTER = 200;
+const LANE_X_START = 80;
+const LANE_Y_START = 60;
+const COLUMN_GAP = 120; // gap between column groups
+const NODE_X_GAP = 320; // horizontal gap between nodes within main path
+const NODE_Y_GAP = 140; // vertical gap between rows
 
 const BRANCH_COLORS = [
   "hsl(var(--primary))",
@@ -58,14 +60,97 @@ const BRANCH_HANDLE_TOP_START = 52;
 
 function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
   const positions: Record<string, { x: number; y: number }> = {};
+  if (steps.length === 0) return positions;
+
+  // Group by column, sorted by order
   const byCol: Record<ColumnId, Step[]> = { intro: [], simulation: [], review: [] };
   steps.forEach((s) => byCol[s.column].push(s));
   Object.values(byCol).forEach((arr) => arr.sort((a, b) => a.order - b.order));
 
+  // Build connections to understand the graph
+  const conns = buildConnections(steps);
+
+  // Find the "main path" — follow linear connections and first branch choices
+  const mainPathIds = new Set<string>();
   const flatOrder = COLUMN_ORDER.flatMap((col) => byCol[col]);
-  flatOrder.forEach((step, i) => {
-    positions[step.id] = { x: LANE_X_START + i * LANE_X_GAP, y: LANE_Y_CENTER };
+  if (flatOrder.length > 0) {
+    // Walk from first step, following linear edges or first branch
+    const visited = new Set<string>();
+    let current: string | null = flatOrder[0].id;
+    while (current && !visited.has(current)) {
+      visited.add(current);
+      mainPathIds.add(current);
+      // Find outgoing connections from current
+      const outgoing = conns.filter((c) => c.fromId === current && c.toId !== "__end__");
+      if (outgoing.length === 0) break;
+      // Prefer the linear connection, then the first branch
+      const linear = outgoing.find((c) => c.type === "linear");
+      if (linear) {
+        current = linear.toId;
+      } else {
+        // First branch (index 0)
+        const first = outgoing.sort((a, b) => (a.branchIndex ?? 0) - (b.branchIndex ?? 0))[0];
+        current = first?.toId ?? null;
+      }
+    }
+  }
+
+  // Identify branch-only targets (not on main path)
+  const branchTargets = new Set<string>();
+  conns.forEach((c) => {
+    if (c.type === "branch" && c.toId !== "__end__" && !mainPathIds.has(c.toId)) {
+      branchTargets.add(c.toId);
+    }
   });
+
+  // Position main path nodes: column-grouped, left to right
+  let xCursor = LANE_X_START;
+  let lastCol: ColumnId | null = null;
+  const mainPathOrder = flatOrder.filter((s) => mainPathIds.has(s.id));
+  const branchSteps = flatOrder.filter((s) => branchTargets.has(s.id));
+
+  mainPathOrder.forEach((step) => {
+    if (lastCol !== null && step.column !== lastCol) {
+      xCursor += COLUMN_GAP; // extra gap between columns
+    }
+    positions[step.id] = { x: xCursor, y: LANE_Y_START };
+    xCursor += NODE_X_GAP;
+    lastCol = step.column;
+  });
+
+  // Position branch targets: below their source decision node, fanned out
+  const decisionBranches: Record<string, string[]> = {};
+  conns.forEach((c) => {
+    if (c.type === "branch" && c.toId !== "__end__" && branchTargets.has(c.toId)) {
+      if (!decisionBranches[c.fromId]) decisionBranches[c.fromId] = [];
+      if (!decisionBranches[c.fromId].includes(c.toId)) {
+        decisionBranches[c.fromId].push(c.toId);
+      }
+    }
+  });
+
+  Object.entries(decisionBranches).forEach(([sourceId, targets]) => {
+    const sourcePos = positions[sourceId];
+    if (!sourcePos) return;
+    targets.forEach((targetId, idx) => {
+      if (positions[targetId]) return; // already placed
+      positions[targetId] = {
+        x: sourcePos.x + (idx - (targets.length - 1) / 2) * NODE_X_GAP,
+        y: sourcePos.y + NODE_Y_GAP,
+      };
+    });
+  });
+
+  // Any remaining steps not yet positioned (orphans) — stack below
+  let orphanY = LANE_Y_START + NODE_Y_GAP * 2;
+  let orphanX = LANE_X_START;
+  flatOrder.forEach((step) => {
+    if (!positions[step.id]) {
+      positions[step.id] = { x: orphanX, y: orphanY };
+      orphanX += NODE_X_GAP;
+    }
+  });
+
   return positions;
 }
 
@@ -376,7 +461,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
             const yOff = conn.branchIndex !== undefined ? BRANCH_HANDLE_TOP_START + conn.branchIndex * BRANCH_HANDLE_SPACING : NODE_H / 2;
             setPositions((prev) => ({
               ...prev,
-              [endId]: { x: fromPos.x + NODE_W + 100, y: fromPos.y + yOff - END_PILL_H / 2 },
+              [endId]: { x: fromPos.x + NODE_W + 160, y: fromPos.y + yOff + 60 },
             }));
           }
         }
