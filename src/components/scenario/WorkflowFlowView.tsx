@@ -208,7 +208,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep }: Workfl
                 {COLUMN_LABELS[col]}
               </div>
 
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-10">
                 {sortedByColumn[col].map((step) => {
                   const isDecision = step.flowBehavior === "decision";
                   const isSelected = step.id === selectedStepId;
@@ -222,7 +222,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep }: Workfl
                       ref={setNodeRef(step.id)}
                       onClick={() => onSelectStep(step.id)}
                       className={cn(
-                        "wf-node rounded-lg border bg-card p-3 cursor-pointer transition-all hover:shadow-md",
+                        "wf-node rounded-lg border bg-card p-3 cursor-pointer transition-all hover:shadow-md w-fit max-w-full",
                         isSelected && "ring-2 ring-primary border-primary",
                         isDecision && "border-l-[3px] border-l-primary",
                         hasInvalidBranch && "border-l-[3px] border-l-destructive ring-1 ring-destructive/30"
