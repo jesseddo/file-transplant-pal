@@ -112,6 +112,21 @@ function buildConnections(steps: Step[]): Connection[] {
   return connections;
 }
 
+// Bezier midpoint helper
+function bezierMidpoint(
+  x1: number, y1: number,
+  cx1: number, cy1: number,
+  cx2: number, cy2: number,
+  x2: number, y2: number,
+  t = 0.5
+) {
+  const mt = 1 - t;
+  return {
+    x: mt ** 3 * x1 + 3 * mt ** 2 * t * cx1 + 3 * mt * t ** 2 * cx2 + t ** 3 * x2,
+    y: mt ** 3 * y1 + 3 * mt ** 2 * t * cy1 + 3 * mt * t ** 2 * cy2 + t ** 3 * y2,
+  };
+}
+
 // Handle position helpers
 function getInputHandlePos(pos: { x: number; y: number }) {
   return { x: pos.x, y: pos.y + NODE_H / 2 };
@@ -295,17 +310,26 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     const y1 = outPos.y;
 
     if (conn.toId === "__end__") {
-      const endX = x1 + 50;
+      const endX = x1 + 80;
+      const endOffset = Math.min(120, Math.max(60, 80 * 0.3));
+      const endPath = `M ${x1} ${y1} C ${x1 + endOffset} ${y1}, ${endX - endOffset} ${y1}, ${endX} ${y1}`;
+      const edgeColor = conn.color || "hsl(0, 72%, 51%)";
       svgElements.push(
         <g key={`conn-${i}`}>
-          <path d={`M ${x1} ${y1} L ${endX} ${y1}`} stroke={conn.color || "hsl(0, 72%, 51%)"} strokeWidth={2} fill="none" strokeDasharray="6 3" />
+          <path d={endPath} stroke="transparent" strokeWidth={14} fill="none" />
+          <path d={endPath} stroke={edgeColor} strokeWidth={2} fill="none" strokeDasharray="6 3" />
           <rect x={endX} y={y1 - 11} width={48} height={22} rx={11} fill="hsl(0, 72%, 51%)" />
           <text x={endX + 24} y={y1 + 4} textAnchor="middle" fill="white" fontSize={11} fontWeight={600}>End</text>
-          {conn.label && (
-            <text x={x1 + 14} y={y1 - 4} textAnchor="start" fill={conn.color || "hsl(0, 72%, 51%)"} fontSize={10} fontWeight={500} className="select-none">
-              {conn.label}
-            </text>
-          )}
+          {conn.label && (() => {
+            const mid = bezierMidpoint(x1, y1, x1 + endOffset, y1, endX - endOffset, y1, endX, y1);
+            const textW = conn.label!.length * 6 + 12;
+            return (
+              <>
+                <rect x={mid.x - textW / 2} y={mid.y - 18} width={textW} height={16} rx={8} fill="hsl(var(--card))" stroke={edgeColor} strokeWidth={1} />
+                <text x={mid.x} y={mid.y - 7} textAnchor="middle" fill={edgeColor} fontSize={10} fontWeight={500} className="select-none">{conn.label}</text>
+              </>
+            );
+          })()}
         </g>
       );
       return;
@@ -315,7 +339,6 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     if (!toPos) return;
 
     const inPos = getInputHandlePos(toPos);
-    // Apply vertical offset for multiple incoming edges
     const tCount = targetCounts[conn.toId] || 1;
     const tIdx = targetIndices.get(conn) || 0;
     const targetYOffset = (tIdx - (tCount - 1) / 2) * 12;
@@ -326,19 +349,28 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     const strokeColor = conn.type === "branch" ? (conn.color || "hsl(var(--primary))") : "hsl(var(--muted-foreground) / 0.35)";
     const strokeWidth = conn.type === "branch" ? 2 : 1.5;
 
-    // Orthogonal smooth-step routing
-    const midX = (x1 + x2) / 2;
-    const pathData = `M ${x1} ${y1} H ${midX} V ${y2} H ${x2}`;
+    // Smooth Bezier routing
+    const offset = Math.min(120, Math.max(60, Math.abs(x2 - x1) * 0.3));
+    const cx1 = x1 + offset;
+    const cx2 = x2 - offset;
+    const pathData = `M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`;
+    const isDashed = conn.label === "fallback";
 
     svgElements.push(
       <g key={`conn-${i}`}>
-        <path d={pathData} stroke={strokeColor} strokeWidth={strokeWidth} fill="none" />
+        <path d={pathData} stroke="transparent" strokeWidth={14} fill="none" />
+        <path d={pathData} stroke={strokeColor} strokeWidth={strokeWidth} fill="none" strokeDasharray={isDashed ? "6 3" : undefined} />
         <circle cx={x2} cy={y2} r={3} fill={strokeColor} />
-        {conn.label && (
-          <text x={x1 + 14} y={y1 - 4} textAnchor="start" fill={strokeColor} fontSize={10} fontWeight={500} className="select-none">
-            {conn.label}
-          </text>
-        )}
+        {conn.label && (() => {
+          const mid = bezierMidpoint(x1, y1, cx1, y1, cx2, y2, x2, y2);
+          const textW = conn.label!.length * 6 + 12;
+          return (
+            <>
+              <rect x={mid.x - textW / 2} y={mid.y - 18} width={textW} height={16} rx={8} fill="hsl(var(--card))" stroke={strokeColor} strokeWidth={1} />
+              <text x={mid.x} y={mid.y - 7} textAnchor="middle" fill={strokeColor} fontSize={10} fontWeight={500} className="select-none">{conn.label}</text>
+            </>
+          );
+        })()}
       </g>
     );
   });
