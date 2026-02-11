@@ -1,82 +1,97 @@
 
 
-# Smarter Node Layout for Complex Workflows
+# Branch-Aware Horizontal Layout
 
-## What You'll See
+## What changes
 
-When you open the Workflow tab, nodes will be neatly arranged in a grid-like structure instead of piled on one line. Each phase column (Intro, Simulation, Review) gets its own horizontal band, and branch targets fan out below their parent decision node without overlapping other nodes or edges.
+The Workflow tab will display a clean, organized horizontal layout where decision nodes "reserve" extra space for their branches. Branch targets will fan out with generous horizontal spacing so nothing overlaps, matching the spatial clarity shown in the reference image.
 
-## Changes
+## Current problem
 
-**Single file:** `src/components/scenario/WorkflowFlowView.tsx`
+All main-path nodes sit at `y = 60` on a single horizontal line. Branch targets are centered below their parent but can overlap neighboring main-path nodes or each other because the algorithm doesn't account for how much horizontal room branches need.
 
-### 1. Increase spacing constants
+## New layout behavior
 
-- `NODE_X_GAP`: 320 -> 360 (more room between nodes horizontally)
-- `NODE_Y_GAP`: 140 -> 180 (more room between rows)
-- `COLUMN_GAP`: 120 -> 180 (clearer separation between Intro/Simulation/Review)
+1. **Main path flows left-to-right** -- same as now, but decision nodes reserve extra horizontal space proportional to their branch count
+2. **Branch targets spread wide below their parent** -- each branch target gets its own horizontal lane with enough gap that it never overlaps a main-path node or another branch target
+3. **Back-references (loops)** -- connections that point backward (like "Startup denied -- recheck" pointing back to an earlier step) are rendered as edges only; they don't create duplicate nodes
+4. **End nodes** -- placed further right and below their source, stacked vertically when multiple end branches exist from the same decision
+5. **Auto fit-to-view** -- fires once on mount so the full graph is visible immediately
 
-### 2. Rewrite the `autoPosition` function with proper vertical stacking
+## Technical details
 
-Current behavior: all main-path nodes sit at the same Y coordinate, creating a single horizontal line.
+**File: `src/components/scenario/WorkflowFlowView.tsx`**
 
-New behavior:
-- **Within each column**, main-path nodes stack vertically (each node in the same column gets its own row)
-- **Across columns**, the X position advances so the overall flow reads left-to-right and top-to-bottom
-- **Branch targets** are placed below and to the right of their source decision node, each on its own row so they never overlap each other or the main path
-- **Collision avoidance**: after initial placement, a simple sweep checks for overlapping bounding boxes and nudges nodes down if they collide
+### Rewritten `autoPosition` algorithm
 
-### 3. Add auto fit-to-view on first mount
-
-- A `useRef(false)` flag called `hasAutoFitted` tracks whether the view has been centered
-- After positions are set, a `requestAnimationFrame` triggers `handleFitToContent()` once to zoom/pan so all nodes are visible
-- The flag resets on unmount so returning to the tab re-centers
-
-### 4. Smarter end-node placement
-
-- End nodes ("End Scenario" pills) are placed further away from their source (+200px right, +80px down) to avoid sitting on top of branch edges
-- When multiple end nodes come from the same source, they are stacked vertically instead of overlapping
-
-## Technical Details
-
-### New `autoPosition` algorithm
-
-```
-1. Group steps by column, sorted by order
-2. Build connections graph
-3. Walk the main path (linear + first branch)
-4. Place main-path nodes:
-   - Track xCursor (advances per column group) and yCursor per column
-   - Each column's nodes stack vertically: y = columnBaseY + (indexInColumn * NODE_Y_GAP)
-   - When column changes, xCursor jumps by COLUMN_GAP + NODE_X_GAP
-5. Place branch targets:
-   - For each decision node, find branch targets NOT on the main path
-   - Place them starting at (sourceX + NODE_X_GAP/2, sourceY + NODE_Y_GAP)
-   - Multiple branch targets from the same source get stacked vertically
-6. Collision pass:
-   - Sort all placed nodes by Y, then X
-   - For each pair, if bounding boxes (NODE_W+40 x NODE_H+40) overlap, push the lower node down
-7. Place orphan nodes at the bottom
+```text
+1. Build connections, identify main path (same as now)
+2. Walk the main path left-to-right:
+   - For each step, place at (xCursor, LANE_Y_START)
+   - If the step is a decision node with N branch targets (not on main path):
+     - Reserve horizontal space: advance xCursor by max(NODE_X_GAP, N * NODE_X_GAP * 0.6)
+       so branches have room to fan out without hitting the next main-path node
+   - Otherwise advance xCursor by NODE_X_GAP
+   - Add COLUMN_GAP when crossing phase boundaries
+3. Place branch targets:
+   - For each decision node, collect its off-main-path branch targets
+   - Place them on a row below (sourceY + NODE_Y_GAP)
+   - Spread them horizontally starting from (sourceX - offset) so they are
+     centered under the source but spaced at NODE_X_GAP apart
+   - If a branch target itself has branches, recursively reserve space below
+4. Collision avoidance sweep:
+   - Sort all placed nodes by Y then X
+   - For each overlapping pair, nudge the lower node down by NODE_H + padding
+5. Place orphan nodes at the bottom
 ```
 
-### Auto fit-to-view
+### Spacing adjustments
+
+| Constant | Old | New | Why |
+|----------|-----|-----|-----|
+| `NODE_X_GAP` | 360 | 320 | Slightly tighter base gap since decision nodes now reserve extra space dynamically |
+| `NODE_Y_GAP` | 180 | 200 | More vertical room between main path and branch rows |
+| `COLUMN_GAP` | 180 | 200 | Clearer visual separation between Intro/Simulation/Review |
+
+### Decision node space reservation (key new logic)
 
 ```typescript
-const hasAutoFitted = useRef(false);
+// When placing a decision node on the main path,
+// count how many off-main-path branch targets it has
+const offPathBranches = (step.choices ?? [])
+  .filter(c => c.nextStepId !== "__end__" && !mainPathIds.has(c.nextStepId))
+  .length;
 
-useEffect(() => {
-  if (Object.keys(positions).length > 0 && !hasAutoFitted.current) {
-    requestAnimationFrame(() => {
-      handleFitToContent();
-      hasAutoFitted.current = true;
-    });
-  }
-}, [positions]);
+// Reserve enough horizontal space so branch targets can fan out
+// without colliding with the next main-path node
+const reservedWidth = offPathBranches > 1
+  ? Math.max(NODE_X_GAP, offPathBranches * NODE_X_GAP * 0.6)
+  : NODE_X_GAP;
+
+xCursor += reservedWidth;
 ```
+
+### End node placement improvement
+
+```typescript
+// Place end nodes to the right and below their source
+// Stack vertically when multiple end branches exist
+endNodes.forEach((endNode, idx) => {
+  const sourcePos = positions[endNode.fromStepId];
+  positions[endNode.id] = {
+    x: sourcePos.x + NODE_X_GAP * 0.7,
+    y: sourcePos.y + NODE_Y_GAP + idx * (NODE_H + 60),
+  };
+});
+```
+
+### Auto fit-to-view (already implemented, kept as-is)
+
+The existing `hasAutoFitted` ref and `useEffect` remain unchanged.
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/components/scenario/WorkflowFlowView.tsx` | Rewrite `autoPosition` with vertical stacking + collision avoidance; increase spacing constants; add auto fit-to-view on mount; improve end-node placement |
+| `src/components/scenario/WorkflowFlowView.tsx` | Rewrite `autoPosition` with decision-node space reservation, wider branch fan-out, improved end-node stacking, and adjusted spacing constants |
 
