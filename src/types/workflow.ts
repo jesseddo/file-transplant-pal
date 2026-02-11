@@ -38,6 +38,7 @@ export interface Step {
   order: number;
   flowBehavior?: FlowBehavior; // defaults to "linear"
   choices?: BranchChoice[]; // only when flowBehavior === "decision"
+  ui?: { position: { x: number; y: number } };
 }
 
 export const ACTION_TILES: ActionTile[] = [

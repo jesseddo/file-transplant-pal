@@ -67,6 +67,7 @@ const Index = () => {
               steps={wf.steps}
               selectedStepId={wf.selectedStepId}
               onSelectStep={wf.setSelectedStepId}
+              onUpdateStep={wf.updateStep}
             />
 
             {wf.selectedStep && (
