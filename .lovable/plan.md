@@ -1,76 +1,116 @@
 
 
-# Improve Workflow Edge Coherence with Connection Ports
+# Add "Edit Logic" Modal for Branching Rules
 
 ## Overview
 
-Add explicit input/output connection handles (small circles) on each card, switch edges from bezier curves to orthogonal smooth-step routing, and place branch labels near source handles for clearer visual connections.
+Add a Typeform-style modal accessible from decision step cards in the Workflow view. The modal provides a clean rule-based interface for configuring routing logic, separate from the choice definition in the Inspector panel.
 
-## Visual Changes
+## What Changes
 
-- **Input handle**: Small circle (6px radius) on left-center of every card
-- **Output handle**: Single circle on right-center for normal cards; one per branch choice vertically stacked for decision cards
-- **Edge style**: Orthogonal (smooth-step) paths instead of bezier curves -- edges travel horizontally, then turn 90 degrees vertically, then horizontally again
-- **Branch labels**: Positioned near the source handle (just right of it) instead of mid-curve
-- **Vertical offsets**: Multiple edges entering/leaving a node are spaced apart so they don't overlap
+### 1. Data Model Extension (`src/types/workflow.ts`)
+
+Add two new optional fields to the `Step` interface:
+
+- `routingRules?: { choiceId: string; nextStepId: string }[]` -- ordered list mapping a choice to a destination
+- `fallbackNextStepId?: string` -- destination for any choice not covered by a rule
+
+No migration needed -- existing `choices[].nextStepId` data stays as-is. The new fields are optional and additive.
+
+### 2. New Component: `EditLogicModal` (`src/components/scenario/EditLogicModal.tsx`)
+
+A Dialog-based modal containing:
+
+- **Title**: "Edit logic for [Step Title]"
+- **Rules list**: Each row renders: `IF [Choice Selected] [is] [dropdown of choices] THEN Go to [dropdown of steps]`
+  - Choice dropdown populated from `step.choices`
+  - Destination dropdown populated from all other steps + "End Scenario"
+  - Each row has a delete button
+- **"+ Add rule" button** at the bottom of the list
+- **Fallback row**: "All other cases go to [destination dropdown]"
+- **Footer**: Save and Cancel buttons
+
+On Save, writes `routingRules` and `fallbackNextStepId` to the step via `onUpdateStep`.
+
+### 3. "Edit Logic" Button on Workflow Cards (`src/components/scenario/WorkflowFlowView.tsx`)
+
+For decision step cards (those with `flowBehavior === "decision"` and choices), add a small "Edit logic" button below the branch list. Clicking it opens the `EditLogicModal` and stops propagation so it doesn't trigger node drag or selection.
+
+### 4. Wire Edge Visualization to New Data (`src/components/scenario/WorkflowFlowView.tsx`)
+
+Update `buildConnections` to prefer `routingRules` when present:
+
+- If `step.routingRules` exists and is non-empty, build branch connections from it instead of from `choices[].nextStepId`
+- Add a linear connection for `fallbackNextStepId` if set
+- Fall back to existing `choices[].nextStepId` behavior if no routing rules are defined (backward compatible)
+
+### 5. Inspector Panel Unchanged
+
+The existing "Learner Choices" section in `InspectorPanel.tsx` keeps its "Then go to..." selector. No removal or refactor. Both paths can set routing; the Edit Logic modal is the primary one for the Workflow view.
 
 ## Technical Details
 
-### File: `src/components/scenario/WorkflowFlowView.tsx`
-
-**1. Connection interface update**
-
-Add `branchIndex` and `branchTotal` fields to the `Connection` interface so edges know their vertical offset at both source and target:
+### EditLogicModal Props
 
 ```typescript
-interface Connection {
-  fromId: string;
-  toId: string | "__end__";
-  type: "linear" | "branch";
-  label?: string;
-  color?: string;
-  branchIndex?: number;   // which branch (0-based) on the source decision
-  branchTotal?: number;   // total branches on the source
+interface EditLogicModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  step: Step;
+  allSteps: Step[];
+  onSave: (stepId: string, updates: Partial<Step>) => void;
 }
 ```
 
-**2. Handle position helpers**
+### Internal State
 
-New helper functions to compute port positions:
+The modal manages local draft state (rules array + fallback) initialized from `step.routingRules` / `step.fallbackNextStepId`. On Save, it calls `onSave` with the updated fields. On Cancel, it discards changes.
 
-- `getInputHandlePos(pos)`: returns `{ x: pos.x, y: pos.y + NODE_H / 2 }` (left-center)
-- `getOutputHandlePos(pos, branchIndex?, branchTotal?)`: for normal cards returns right-center; for decision cards computes a vertically stacked y-offset aligned with the choice list area (starting below the badge row, ~16px apart per choice)
-
-**3. Render visual handles on cards**
-
-After each card's content, render small SVG-like circles as absolutely positioned `div` elements:
-
-- **Left handle** (input): `left: -5px, top: 50%`, 10x10 circle, border + fill
-- **Right handle(s)** (output): for normal cards one at `right: -5px, top: 50%`; for decision cards one per choice, vertically aligned with the choice dot in the choice list
-
-**4. Smooth-step (orthogonal) edge routing**
-
-Replace bezier `C` paths with orthogonal routing:
+### Rule Row Layout
 
 ```
-M x1,y1  H midX  V y2  H x2
+[ IF ] [ Choice Selected v ] [ is ] [ Choice Label v ] [ THEN Go to ] [ Step v ] [ X ]
 ```
 
-Where `midX = (x1 + x2) / 2`. This creates a clean right-angle path: horizontal from source, vertical turn, horizontal into target.
+Each rule is a `{ choiceId: string; nextStepId: string }` pair. The choice dropdown shows available choices from `step.choices`. The destination dropdown shows all steps (excluding current) plus "End Scenario" (`__end__`).
 
-**5. Vertical offset for overlapping edges**
+### Connection Building Update
 
-When multiple edges enter the same target node, compute per-edge offsets at the target. Count how many connections share the same `toId`, assign each an index, and offset the target y by `(index - (count-1)/2) * 12px`. Same logic for multiple edges leaving a non-decision node (rare but handled).
+```typescript
+// In buildConnections:
+if (step.routingRules && step.routingRules.length > 0) {
+  // Use routingRules for branch connections
+  step.routingRules.forEach((rule, idx) => {
+    const choice = step.choices?.find(c => c.id === rule.choiceId);
+    connections.push({
+      fromId: step.id,
+      toId: rule.nextStepId,
+      type: "branch",
+      label: choice?.label,
+      color: BRANCH_COLORS[idx % BRANCH_COLORS.length],
+      branchIndex: idx,
+      branchTotal: step.routingRules!.length,
+    });
+  });
+  // Add fallback connection if set
+  if (step.fallbackNextStepId) {
+    connections.push({
+      fromId: step.id,
+      toId: step.fallbackNextStepId,
+      type: "linear",
+      label: "fallback",
+    });
+  }
+} else {
+  // Existing behavior using choices[].nextStepId
+}
+```
 
-**6. Branch labels near source handle**
+## Files Changed
 
-Move the label `text` element from mid-curve `((x1+x2)/2, min(y1,y2)-6)` to near the source: `(x1 + 14, y1 - 2)` with `textAnchor="start"`.
-
-**7. Update `buildConnections`**
-
-Pass `branchIndex` and `branchTotal` in each connection for decision steps so the rendering knows which output port to use.
-
-### No other files changed
-
-All modifications are within `WorkflowFlowView.tsx`. No data model or type changes needed.
+| File | Change |
+|------|--------|
+| `src/types/workflow.ts` | Add `routingRules` and `fallbackNextStepId` to `Step` interface |
+| `src/components/scenario/EditLogicModal.tsx` | New file -- the modal component |
+| `src/components/scenario/WorkflowFlowView.tsx` | Add "Edit logic" button on decision cards, update `buildConnections`, import modal |
 
