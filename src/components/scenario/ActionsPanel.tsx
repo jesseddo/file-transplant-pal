@@ -2,18 +2,16 @@ import { ACTION_TILES, ActionCategory, CATEGORY_BADGE_CLASS } from "@/types/work
 import {
   Play, FileText, Headphones, MessageSquare, Radio,
   Brain, Download, ClipboardCheck, AlertTriangle, GitBranch,
-  BookOpen, GitFork,
 } from "lucide-react";
 import type { StepType } from "@/types/workflow";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Play, FileText, Headphones, MessageSquare, Radio,
   Brain, Download, ClipboardCheck, AlertTriangle, GitBranch,
-  BookOpen, GitFork,
 };
 
 const CATEGORIES: ActionCategory[] = [
-  "Flow", "Media", "Simulation", "Coaching", "Resources & Compliance", "Behavioral",
+  "Media", "Simulation", "Coaching", "Resources & Compliance", "Behavioral",
 ];
 
 interface ActionsPanelProps {

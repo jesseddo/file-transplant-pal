@@ -1,9 +1,10 @@
 import { Step, BranchChoice, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid } from "@/types/workflow";
-import { X, Plus, Trash2, AlertCircle, Info } from "lucide-react";
+import { X, Plus, Trash2, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useCallback } from "react";
 
 interface InspectorPanelProps {
@@ -16,10 +17,18 @@ interface InspectorPanelProps {
 export function InspectorPanel({ step, allSteps, onClose, onUpdate }: InspectorPanelProps) {
   const category = STEP_TYPE_CATEGORY[step.type];
   const badgeClass = CATEGORY_BADGE_CLASS[category];
-  const isDecision = step.type === "decision-checkpoint";
-  const isScene = step.type === "scene-narrative";
+  const flowBehavior = step.flowBehavior ?? "linear";
+  const isDecision = flowBehavior === "decision";
   const choices = step.choices ?? [];
   const isValid = isDecisionCheckpointValid(step);
+
+  const setFlowBehavior = useCallback((value: string) => {
+    if (value === "linear") {
+      onUpdate(step.id, { flowBehavior: "linear", choices: [] });
+    } else {
+      onUpdate(step.id, { flowBehavior: "decision" });
+    }
+  }, [step.id, onUpdate]);
 
   const addChoice = useCallback(() => {
     const newChoice: BranchChoice = {
@@ -41,7 +50,6 @@ export function InspectorPanel({ step, allSteps, onClose, onUpdate }: InspectorP
     onUpdate(step.id, { choices: choices.filter(c => c.id !== choiceId) });
   }, [step.id, choices, onUpdate]);
 
-  // Steps available as "next step" targets (excluding self)
   const targetOptions = allSteps.filter(s => s.id !== step.id);
 
   return (
@@ -78,17 +86,26 @@ export function InspectorPanel({ step, allSteps, onClose, onUpdate }: InspectorP
 
         <hr className="border-border" />
 
-        {/* Scene / Narrative — linear only notice */}
-        {isScene && (
-          <div className="flex items-start gap-2 rounded-md bg-muted px-3 py-2">
-            <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-            <p className="text-xs text-muted-foreground">
-              Scene / Narrative steps use linear flow only. No branching choices can be added.
-            </p>
-          </div>
-        )}
+        {/* Flow Behavior selector — available for all step types */}
+        <div>
+          <Label className="text-xs font-bold">Flow Behavior</Label>
+          <RadioGroup value={flowBehavior} onValueChange={setFlowBehavior} className="mt-2 gap-3">
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="linear" id="flow-linear" />
+              <Label htmlFor="flow-linear" className="text-xs font-normal cursor-pointer">
+                Linear — proceeds to next step
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="decision" id="flow-decision" />
+              <Label htmlFor="flow-decision" className="text-xs font-normal cursor-pointer">
+                Decision — learner makes a branching choice
+              </Label>
+            </div>
+          </RadioGroup>
+        </div>
 
-        {/* Decision Checkpoint — choices editor */}
+        {/* Choices editor when Decision is selected */}
         {isDecision && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -155,7 +172,9 @@ export function InspectorPanel({ step, allSteps, onClose, onUpdate }: InspectorP
           </div>
         )}
 
-        {/* Existing type-specific fields (non-flow types) */}
+        <hr className="border-border" />
+
+        {/* Type-specific fields */}
         {(step.type === "video" || step.type === "audio") && (
           <>
             <div>
