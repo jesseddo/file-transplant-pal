@@ -86,6 +86,8 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
   const [dragging, setDragging] = useState<{ stepId: string; startMouse: { x: number; y: number }; startPos: { x: number; y: number } } | null>(null);
   // Panning state
   const [panning, setPanning] = useState<{ startMouse: { x: number; y: number }; startPan: { x: number; y: number } } | null>(null);
+  // Space key state for pan mode
+  const [spaceHeld, setSpaceHeld] = useState(false);
 
   // Initialize positions from step data or auto-layout
   useEffect(() => {
@@ -113,7 +115,24 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [steps.map(s => s.id).join(",")]);
 
-  // Wheel scroll: horizontal pan (no ctrl), zoom (with ctrl)
+  // Space key listener for pan mode
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if (e.code === "Space" && !e.repeat) setSpaceHeld(true); };
+    const up = (e: KeyboardEvent) => { if (e.code === "Space") setSpaceHeld(false); };
+    const reset = () => setSpaceHeld(false);
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", reset);
+    document.addEventListener("visibilitychange", reset);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", reset);
+      document.removeEventListener("visibilitychange", reset);
+    };
+  }, []);
+
+  // Wheel scroll: zoom only (Ctrl+scroll), let native scroll handle the rest
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -121,12 +140,6 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         setZoom((z) => Math.min(2, Math.max(0.3, z - e.deltaY * 0.003)));
-      } else {
-        e.preventDefault();
-        setPan((p) => ({
-          x: p.x - (e.deltaX + e.deltaY),
-          y: p.y - (e.shiftKey ? e.deltaY : 0),
-        }));
       }
     };
     el.addEventListener("wheel", handler, { passive: false });
@@ -184,8 +197,10 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
   };
 
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
-    // Only pan on left-click on empty canvas
-    if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvasBg) {
+    const isCanvas = e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvasBg;
+    if (!isCanvas) return;
+    if ((spaceHeld && e.button === 0) || e.button === 1) {
+      e.preventDefault();
       setPanning({
         startMouse: { x: e.clientX, y: e.clientY },
         startPan: { ...pan },
@@ -270,16 +285,10 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-hidden bg-[hsl(var(--canvas))] relative select-none"
+      className="flex-1 overflow-auto bg-[hsl(var(--canvas))] relative select-none"
       onMouseDown={handleCanvasMouseDown}
-      style={{ cursor: panning ? "grabbing" : "grab" }}
+      style={{ cursor: panning ? "grabbing" : spaceHeld ? "grab" : "default" }}
     >
-      {/* Click-drag background layer */}
-      <div
-        data-canvas-bg="true"
-        className="absolute inset-0"
-        style={{ width: "200%", height: "200%", zIndex: 0 }}
-      />
       {/* Canvas layer */}
       <div
         style={{
