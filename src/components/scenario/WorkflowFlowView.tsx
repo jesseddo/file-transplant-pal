@@ -198,7 +198,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep }: Workfl
         {/* Layer 2: Step cards (above arrows) */}
         <div className="flex gap-16 relative" style={{ zIndex: 2 }}>
           {COLUMN_ORDER.map((col) => (
-            <div key={col} className="flex-1 min-w-[300px]">
+            <div key={col} className="w-fit min-w-[200px]">
               <div className={cn(
                 "mb-4 px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider text-muted-foreground",
                 col === "intro" && "bg-[hsl(var(--column-header-intro))]",
