@@ -42,7 +42,7 @@ export function ActionsPanel({ onAddStep }: ActionsPanelProps) {
                       onDragStart={(e) => {
                         e.dataTransfer.setData("application/action-type", tile.type);
                         e.dataTransfer.setData("application/action-label", tile.label);
-                        e.dataTransfer.effectAllowed = "copy";
+                        e.dataTransfer.effectAllowed = "copyMove";
                       }}
                       onClick={() => onAddStep(tile.type, tile.label)}
                       className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-foreground hover:bg-accent transition-colors text-left cursor-grab active:cursor-grabbing"
