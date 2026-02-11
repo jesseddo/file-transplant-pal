@@ -1,92 +1,55 @@
 
 
-# P-101 Isobutane Pump Recommissioning -- Branching Scenario Data
+# Make the Branching Choices Editor More User-Friendly
 
-## Overview
+## Problem
 
-Replace the current 6-step placeholder data in `useWorkflow.ts` with a realistic **P-101 Isobutane Pump Recommissioning** scenario that includes decision points and branching. This will demonstrate the Workflow view's visualization capabilities without changing any data structures or components.
+The current choice editor uses technical labels like **"Action Identifier"** and **"Learner-facing Label"** that feel like developer jargon. Instructional Designers think in terms of what the learner sees and where the story goes next -- not API identifiers.
 
-## The Scenario (Domain Context)
+## Changes
 
-A field operator is recommissioning an isobutane pump (P-101) after maintenance. The training scenario walks them through safety orientation, a simulated field task with decision checkpoints, and a final review/evaluation.
+### 1. Simplify field labels and add helper text
 
-## Proposed Steps and Branching
+| Current Label | New Label | Why |
+|---|---|---|
+| Learner-facing Label | **Button Text** | IDs understand this immediately -- it's what the learner clicks |
+| Action Identifier | **Remove entirely** (auto-generate from label) | IDs don't need this; it's a backend concern |
+| Next Step | **Then go to...** | Conversational, matches how IDs think about flow |
 
-### Intro Column (3 steps)
-1. **P-101 Overview Video** (video) -- orientation video about the pump system
-2. **Recommissioning SOP** (pdf) -- standard operating procedure document
-3. **Pre-Task Safety Audio Brief** (audio) -- audio walkthrough of hazards
+### 2. Auto-generate the Action Identifier
 
-### Simulation Column (5 steps, including 2 decision points)
-4. **Radio: Confirm Isolation Status** (radio-call) -- trainee calls control room to verify isolation
-5. **Verify Line-up Checklist** (text-chat, DECISION) -- trainee verifies valve positions via chat simulation
-   - Branch A: "All valves correct" --> proceeds to step 6
-   - Branch B: "Valve misalignment found" --> goes to step 7 (interruption for corrective action)
-6. **Fetch Clearance Permit** (fetch-document) -- retrieve the work permit
-7. **Handle Valve Misalignment** (interruption) -- corrective action for the error path
-8. **Startup Authorization Check** (text-chat, DECISION) -- control room grants or denies startup
-   - Branch A: "Startup approved" --> proceeds to step 9 (review)
-   - Branch B: "Startup denied -- recheck" --> loops back to step 5
-   - Branch C: "Emergency condition" --> ends scenario
+Instead of asking the ID to type `evacuate_area`, auto-generate it from the button text by lowercasing and replacing spaces with underscores. Store it silently in `choice.actionId` -- the ID never sees or manages it. This keeps the data structure unchanged while hiding the technical detail.
 
-### Review Column (2 steps)
-9. **AI Coach: Recommissioning Debrief** (ai-coach) -- reflection on decisions made
-10. **Generate Competency Report** (generate-evaluation) -- final evaluation
+### 3. Improve choice card layout
 
-## Flow Visualization (what the Workflow tab will show)
+- Replace the generic "Choice 1" header with a colored letter badge (A, B, C) for quick visual scanning
+- Add a subtle helper sentence below the "Learner Choices" heading: *"What options does the learner see at this point?"*
+- Change the "+ Add Choice" button text to **"+ Add Option"** (friendlier wording)
+- Update placeholder text to be more contextual: `e.g. "Evacuate the area"` for button text, and keep the dropdown as-is
 
-```text
-INTRO                    SIMULATION                              REVIEW
-+-----------------+      +-------------------------+
-| P-101 Overview  |----->| Radio: Confirm          |
-| (video)         |      | Isolation Status        |
-+-----------------+      +-------------------------+
-                                  |
-+-----------------+      +-------------------------+
-| Recommissioning |      | Verify Line-up          |
-| SOP (pdf)       |      | Checklist (DECISION)    |--+
-+-----------------+      +---+---------------------+  |
-                              |                        |
-+-----------------+      "All valves    "Valve         |
-| Pre-Task Safety |      correct"      misalignment"   |
-| Audio (audio)   |         |               |          |
-+-----------------+         v               v          |
-                     +-------------+ +---------------+ |
-                     | Fetch       | | Handle Valve  | |
-                     | Clearance   | | Misalignment  | |
-                     | Permit      | | (interruption)| |
-                     +------+------+ +-------+-------+ |
-                            |                |          |
-                            +---+------------+          |
-                                |                       |
-                     +----------v-----------+           |
-                     | Startup Auth Check   |           |
-                     | (DECISION)           |           |
-                     +--+-------+--------+--+           |
-                        |       |        |              |
-                  "Approved" "Denied" "Emergency"       |
-                        |    (back to    |              |
-                        |    Verify)   [END]     +------+------+
-                        |       |                | AI Coach    |
-                        +-------+--------------->| Debrief     |
-                                                 +------+------+
-                                                        |
-                                                 +------v------+
-                                                 | Generate    |
-                                                 | Report      |
-                                                 +-------------+
-```
+### 4. Polish the Flow Behavior selector
 
-## Technical Changes
+- Change "Linear -- proceeds to next step" to **"Linear -- continues to the next step automatically"**
+- Change "Decision -- learner makes a branching choice" to **"Decision -- the learner picks what to do next"**
 
-### File: `src/hooks/useWorkflow.ts`
+## Technical Details
 
-Replace the `INITIAL_STEPS` array with 10 steps. Two steps use `flowBehavior: "decision"` with populated `choices` arrays:
+### File: `src/components/scenario/InspectorPanel.tsx`
 
-- Step s5 ("Verify Line-up Checklist"): 2 branches
-- Step s8 ("Startup Authorization Check"): 3 branches (including one `__end__`)
+- Remove the "Action Identifier" input field from the choice card
+- Add a `useEffect` or inline logic that auto-generates `actionId` from `label` whenever label changes: `label.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')`
+- Rename displayed labels as described above
+- Add letter badges (A, B, C) using `String.fromCharCode(65 + idx)`
+- Add helper text paragraph below the "Learner Choices" label
 
-Update `nextId` to `11`.
+### File: `src/types/workflow.ts`
 
-No other files change. The existing `WorkflowFlowView` component will automatically render the nodes and SVG connections from this data.
+No changes -- `BranchChoice` keeps the `actionId` field; it's just auto-populated now.
+
+## What stays the same
+
+- All data structures unchanged
+- The `actionId` field still exists and is still stored -- just auto-generated
+- Inspector functionality (add/remove/reorder choices) unchanged
+- Workflow view unchanged
 
