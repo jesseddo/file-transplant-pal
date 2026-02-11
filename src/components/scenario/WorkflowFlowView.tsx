@@ -39,10 +39,6 @@ const BRANCH_COLORS = [
 const NODE_W = 220;
 const NODE_H = 70;
 const HANDLE_SIZE = 10;
-// Rail routing constants
-const RAIL_MARGIN = 30;
-const RAIL_SPREAD = 8;
-const ROUTE_MARGIN = 40;
 // Vertical spacing between branch output handles
 const BRANCH_HANDLE_SPACING = 16;
 // Top offset for first branch handle (below badge row)
@@ -298,26 +294,9 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     const strokeColor = conn.type === "branch" ? (conn.color || "hsl(var(--primary))") : "hsl(var(--muted-foreground) / 0.35)";
     const strokeWidth = conn.type === "branch" ? 2 : 1.5;
 
-    // Lane-based rail routing
-    const railOffset = (conn.branchIndex ?? 0) * RAIL_SPREAD;
-    const exitRailX = fromPos.x + NODE_W + RAIL_MARGIN + railOffset;
-    const entryRailX = toPos.x - RAIL_MARGIN;
-
-    let pathData: string;
-    if (exitRailX <= entryRailX) {
-      // Forward: single rail at midpoint between exit and entry
-      const railX = (exitRailX + entryRailX) / 2;
-      pathData = `M ${x1} ${y1} H ${railX} V ${y2} H ${x2}`;
-    } else {
-      // Backward/cross-lane: route via two rails, above or below all nodes
-      const allYs = Object.values(positions).map(p => p.y);
-      const minY = Math.min(...allYs);
-      const maxY = Math.max(...allYs);
-      const routeAbove = minY - ROUTE_MARGIN;
-      const routeBelow = maxY + NODE_H + ROUTE_MARGIN;
-      const routeY = Math.abs(y1 - routeAbove) < Math.abs(y1 - routeBelow) ? routeAbove : routeBelow;
-      pathData = `M ${x1} ${y1} H ${exitRailX} V ${routeY} H ${entryRailX} V ${y2} H ${x2}`;
-    }
+    // Orthogonal smooth-step routing
+    const midX = (x1 + x2) / 2;
+    const pathData = `M ${x1} ${y1} H ${midX} V ${y2} H ${x2}`;
 
     svgElements.push(
       <g key={`conn-${i}`}>
