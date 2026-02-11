@@ -21,9 +21,9 @@ interface Connection {
 }
 
 const COLUMN_ORDER: ColumnId[] = ["intro", "simulation", "review"];
-const COLUMN_X: Record<ColumnId, number> = { intro: 100, simulation: 450, review: 800 };
-const LANE_Y_START = 80;
-const LANE_Y_GAP = 160;
+const LANE_X_START = 100;
+const LANE_X_GAP = 280;
+const LANE_Y_CENTER = 200;
 
 const BRANCH_COLORS = [
   "hsl(var(--primary))",
@@ -39,10 +39,9 @@ function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
   steps.forEach((s) => byCol[s.column].push(s));
   Object.values(byCol).forEach((arr) => arr.sort((a, b) => a.order - b.order));
 
-  COLUMN_ORDER.forEach((col) => {
-    byCol[col].forEach((step, i) => {
-      positions[step.id] = { x: COLUMN_X[col], y: LANE_Y_START + i * LANE_Y_GAP };
-    });
+  const flatOrder = COLUMN_ORDER.flatMap((col) => byCol[col]);
+  flatOrder.forEach((step, i) => {
+    positions[step.id] = { x: LANE_X_START + i * LANE_X_GAP, y: LANE_Y_CENTER };
   });
   return positions;
 }
@@ -221,16 +220,16 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
   connections.forEach((conn, i) => {
     const fromPos = positions[conn.fromId];
     if (!fromPos) return;
-    const x1 = fromPos.x + NODE_W / 2;
-    const y1 = fromPos.y + NODE_H;
+    const x1 = fromPos.x + NODE_W;
+    const y1 = fromPos.y + NODE_H / 2;
 
     if (conn.toId === "__end__") {
-      const endY = y1 + 50;
+      const endX = x1 + 50;
       svgElements.push(
         <g key={`conn-${i}`}>
-          <path d={`M ${x1} ${y1} L ${x1} ${endY}`} stroke={conn.color || "hsl(0, 72%, 51%)"} strokeWidth={2} fill="none" strokeDasharray="6 3" />
-          <rect x={x1 - 24} y={endY} width={48} height={22} rx={11} fill="hsl(0, 72%, 51%)" />
-          <text x={x1} y={endY + 15} textAnchor="middle" fill="white" fontSize={11} fontWeight={600}>End</text>
+          <path d={`M ${x1} ${y1} L ${endX} ${y1}`} stroke={conn.color || "hsl(0, 72%, 51%)"} strokeWidth={2} fill="none" strokeDasharray="6 3" />
+          <rect x={endX} y={y1 - 11} width={48} height={22} rx={11} fill="hsl(0, 72%, 51%)" />
+          <text x={endX + 24} y={y1 + 4} textAnchor="middle" fill="white" fontSize={11} fontWeight={600}>End</text>
         </g>
       );
       return;
@@ -238,18 +237,18 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
 
     const toPos = positions[conn.toId];
     if (!toPos) return;
-    const x2 = toPos.x + NODE_W / 2;
-    const y2 = toPos.y;
-    const midY = (y1 + y2) / 2;
+    const x2 = toPos.x;
+    const y2 = toPos.y + NODE_H / 2;
+    const offsetX = Math.abs(x2 - x1) * 0.4;
     const strokeColor = conn.type === "branch" ? (conn.color || "hsl(var(--primary))") : "hsl(var(--muted-foreground) / 0.35)";
     const strokeWidth = conn.type === "branch" ? 2 : 1.5;
 
     svgElements.push(
       <g key={`conn-${i}`}>
-        <path d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`} stroke={strokeColor} strokeWidth={strokeWidth} fill="none" />
+        <path d={`M ${x1} ${y1} C ${x1 + offsetX} ${y1}, ${x2 - offsetX} ${y2}, ${x2} ${y2}`} stroke={strokeColor} strokeWidth={strokeWidth} fill="none" />
         <circle cx={x2} cy={y2} r={3} fill={strokeColor} />
         {conn.label && (
-          <text x={(x1 + x2) / 2} y={midY - 4} textAnchor="middle" fill={strokeColor} fontSize={10} fontWeight={500} className="select-none">
+          <text x={(x1 + x2) / 2} y={Math.min(y1, y2) - 6} textAnchor="middle" fill={strokeColor} fontSize={10} fontWeight={500} className="select-none">
             {conn.label}
           </text>
         )}
@@ -287,21 +286,6 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
           {svgElements}
         </svg>
 
-        {/* Column headers */}
-        {COLUMN_ORDER.map((col) => (
-          <div
-            key={col}
-            className={cn(
-              "absolute px-3 py-1 rounded-md text-xs font-semibold uppercase tracking-wider text-muted-foreground",
-              col === "intro" && "bg-[hsl(var(--column-header-intro))]",
-              col === "simulation" && "bg-[hsl(var(--column-header-sim))]",
-              col === "review" && "bg-[hsl(var(--column-header-review))]"
-            )}
-            style={{ left: COLUMN_X[col], top: 30, zIndex: 2 }}
-          >
-            {col.charAt(0).toUpperCase() + col.slice(1)}
-          </div>
-        ))}
 
         {/* Step nodes - z-index 2 */}
         {steps.map((step) => {
@@ -317,9 +301,11 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
             <div
               key={step.id}
               className={cn(
-                "absolute rounded-lg border bg-card p-3 cursor-grab transition-shadow hover:shadow-md",
-                isSelected && "ring-2 ring-primary border-primary",
-                isDecision && "border-l-[3px] border-l-primary",
+                "absolute rounded-lg border bg-card p-3 cursor-grab transition-shadow hover:shadow-md border-l-[3px]",
+                step.column === "intro" && "border-l-[hsl(var(--column-header-intro))]",
+                step.column === "simulation" && "border-l-[hsl(var(--column-header-sim))]",
+                step.column === "review" && "border-l-[hsl(var(--column-header-review))]",
+                isSelected && "ring-2 ring-primary",
                 hasInvalidBranch && "border-l-[3px] border-l-destructive ring-1 ring-destructive/30",
                 dragging?.stepId === step.id && "cursor-grabbing shadow-lg"
               )}
