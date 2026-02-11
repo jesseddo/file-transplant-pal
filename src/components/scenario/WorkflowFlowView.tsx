@@ -1,10 +1,14 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { Step, ColumnId, StepType, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid } from "@/types/workflow";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, GitBranch, StopCircle, ZoomIn, ZoomOut, Maximize, LayoutGrid, RotateCcw, Settings2 } from "lucide-react";
+import { AlertTriangle, GitBranch, StopCircle, ZoomIn, ZoomOut, Maximize, LayoutGrid, RotateCcw, Settings2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { EditLogicModal } from "@/components/scenario/EditLogicModal";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface WorkflowFlowViewProps {
   steps: Step[];
@@ -21,6 +25,13 @@ interface Connection {
   color?: string;
   branchIndex?: number;
   branchTotal?: number;
+}
+
+interface EndNodeInfo {
+  id: string; // e.g. "__end__:s8:c8c"
+  fromStepId: string;
+  choiceLabel?: string;
+  color?: string;
 }
 
 const COLUMN_ORDER: ColumnId[] = ["intro", "simulation", "review"];
@@ -200,6 +211,8 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [editLogicStep, setEditLogicStep] = useState<Step | null>(null);
+  const [endNodeConfigs, setEndNodeConfigs] = useState<Record<string, { action: string; message: string }>>({});
+  const [activeEndPopover, setActiveEndPopover] = useState<string | null>(null);
 
   const [dragging, setDragging] = useState<{ stepId: string; startMouse: { x: number; y: number }; startPos: { x: number; y: number } } | null>(null);
   const hasDragged = useRef(false);
@@ -281,7 +294,10 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     const handleUp = () => {
       if (dragging) {
         const pos = positions[dragging.stepId];
-        if (pos) onUpdateStep(dragging.stepId, { ui: { position: pos } });
+        // Only persist position for real steps, not end nodes
+        if (pos && !dragging.stepId.startsWith("__end__")) {
+          onUpdateStep(dragging.stepId, { ui: { position: pos } });
+        }
         setDragging(null);
         setTimeout(() => { hasDragged.current = false; }, 0);
       }
@@ -337,6 +353,37 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
   // Build connections & compute target offsets
   const connections = buildConnections(steps);
 
+  // Collect end nodes and auto-position them
+  const END_PILL_W = 56;
+  const END_PILL_H = 28;
+  const endNodes: EndNodeInfo[] = [];
+  const endNodeIdSet = new Set<string>();
+  connections.forEach((conn, i) => {
+    if (conn.toId === "__end__") {
+      const endId = `__end__${i}`;
+      if (!endNodeIdSet.has(endId)) {
+        endNodeIdSet.add(endId);
+        endNodes.push({
+          id: endId,
+          fromStepId: conn.fromId,
+          choiceLabel: conn.label,
+          color: conn.color,
+        });
+        // Auto-position if not already placed
+        if (!positions[endId]) {
+          const fromPos = positions[conn.fromId];
+          if (fromPos) {
+            const yOff = conn.branchIndex !== undefined ? BRANCH_HANDLE_TOP_START + conn.branchIndex * BRANCH_HANDLE_SPACING : NODE_H / 2;
+            setPositions((prev) => ({
+              ...prev,
+              [endId]: { x: fromPos.x + NODE_W + 100, y: fromPos.y + yOff - END_PILL_H / 2 },
+            }));
+          }
+        }
+      }
+    }
+  });
+
   // Count how many edges target the same node for vertical offset
   const targetCounts: Record<string, number> = {};
   const targetIndices: Map<Connection, number> = new Map();
@@ -355,26 +402,40 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
   });
 
   const svgElements: JSX.Element[] = [];
+  let endConnIdx = 0;
   connections.forEach((conn, i) => {
     const fromPos = positions[conn.fromId];
     if (!fromPos) return;
 
     if (conn.toId === "__end__") {
-      // For __end__, always exit right
-      const x1 = fromPos.x + NODE_W;
-      const y1 = fromPos.y + (conn.branchIndex !== undefined ? BRANCH_HANDLE_TOP_START + conn.branchIndex * BRANCH_HANDLE_SPACING : NODE_H / 2);
-      const endX = x1 + 80;
-      const endOffset = Math.min(120, Math.max(60, 80 * 0.3));
-      const endPath = `M ${x1} ${y1} C ${x1 + endOffset} ${y1}, ${endX - endOffset} ${y1}, ${endX} ${y1}`;
+      const endId = `__end__${i}`;
+      const endPos = positions[endId];
+      if (!endPos) { endConnIdx++; return; }
+
+      // Draw edge from source to end node center
+      const endCenterPos = { x: endPos.x, y: endPos.y + END_PILL_H / 2 };
+      // Use source output handle toward the end node
+      const fakeTargetPos = { x: endPos.x - END_PILL_W / 2, y: endPos.y };
+      const out = getSmartOutputPos(fromPos, fakeTargetPos, conn.branchIndex, conn.branchTotal);
+      const x1 = out.x;
+      const y1 = out.y;
+      const x2 = endCenterPos.x;
+      const y2 = endCenterPos.y;
       const edgeColor = conn.color || "hsl(0, 72%, 51%)";
+      const offset = Math.min(120, Math.max(60, Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) * 0.3));
+      const cp1 = controlPoint(x1, y1, out.direction, offset);
+      // Input direction: from end node toward source
+      const inDir = getDirection({ x: endPos.x - END_PILL_W / 2, y: endPos.y }, fromPos);
+      const cp2 = controlPoint(x2, y2, inDir, offset);
+      const pathData = `M ${x1} ${y1} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${x2} ${y2}`;
+
       svgElements.push(
         <g key={`conn-${i}`}>
-          <path d={endPath} stroke="transparent" strokeWidth={14} fill="none" />
-          <path d={endPath} stroke={edgeColor} strokeWidth={2} fill="none" strokeDasharray="6 3" />
-          <rect x={endX} y={y1 - 11} width={48} height={22} rx={11} fill="hsl(0, 72%, 51%)" />
-          <text x={endX + 24} y={y1 + 4} textAnchor="middle" fill="white" fontSize={11} fontWeight={600}>End</text>
+          <path d={pathData} stroke="transparent" strokeWidth={14} fill="none" />
+          <path d={pathData} stroke={edgeColor} strokeWidth={2} fill="none" strokeDasharray="6 3" />
+          <circle cx={x2} cy={y2} r={3} fill={edgeColor} />
           {conn.label && (() => {
-            const mid = bezierMidpoint(x1, y1, x1 + endOffset, y1, endX - endOffset, y1, endX, y1);
+            const mid = bezierMidpoint(x1, y1, cp1.x, cp1.y, cp2.x, cp2.y, x2, y2);
             const textW = conn.label!.length * 6 + 12;
             return (
               <>
@@ -385,6 +446,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
           })()}
         </g>
       );
+      endConnIdx++;
       return;
     }
 
@@ -538,6 +600,115 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
                 </div>
               )}
             </div>
+          );
+        })}
+
+        {/* End nodes (draggable HTML pills) */}
+        {endNodes.map((endNode) => {
+          const pos = positions[endNode.id];
+          if (!pos) return null;
+          const config = endNodeConfigs[endNode.id] || { action: "end_scenario", message: "" };
+          const isDraggingThis = dragging?.stepId === endNode.id;
+
+          return (
+            <Popover
+              key={endNode.id}
+              open={activeEndPopover === endNode.id}
+              onOpenChange={(open) => setActiveEndPopover(open ? endNode.id : null)}
+            >
+              <PopoverTrigger asChild>
+                <div
+                  className={cn(
+                    "absolute cursor-grab select-none flex items-center justify-center rounded-full text-white text-[11px] font-semibold shadow-md transition-shadow hover:shadow-lg",
+                    isDraggingThis && "cursor-grabbing shadow-lg"
+                  )}
+                  style={{
+                    left: pos.x - END_PILL_W / 2,
+                    top: pos.y,
+                    width: END_PILL_W,
+                    height: END_PILL_H,
+                    backgroundColor: "hsl(0, 72%, 51%)",
+                    borderRadius: END_PILL_H / 2,
+                    zIndex: isDraggingThis ? 10 : 3,
+                    userSelect: "none",
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    hasDragged.current = false;
+                    setDragging({
+                      stepId: endNode.id,
+                      startMouse: { x: e.clientX, y: e.clientY },
+                      startPos: { x: pos.x, y: pos.y },
+                    });
+                  }}
+                  onClick={(e) => {
+                    if (!hasDragged.current) {
+                      e.stopPropagation();
+                      setActiveEndPopover(endNode.id);
+                    }
+                  }}
+                >
+                  <StopCircle className="w-3.5 h-3.5 mr-1" />
+                  End
+                </div>
+              </PopoverTrigger>
+              <PopoverContent className="w-72" side="bottom" align="start">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-foreground">End Configuration</h4>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setActiveEndPopover(null)}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                  {endNode.choiceLabel && (
+                    <p className="text-xs text-muted-foreground">
+                      Triggered by: <span className="font-medium text-foreground">{endNode.choiceLabel}</span>
+                    </p>
+                  )}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Action</Label>
+                    <Select
+                      value={config.action}
+                      onValueChange={(val) =>
+                        setEndNodeConfigs((prev) => ({
+                          ...prev,
+                          [endNode.id]: { ...config, action: val },
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="end_scenario">End Scenario</SelectItem>
+                        <SelectItem value="show_summary">Show Summary</SelectItem>
+                        <SelectItem value="restart">Restart from Beginning</SelectItem>
+                        <SelectItem value="redirect">Redirect to Review</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">End Message (optional)</Label>
+                    <Textarea
+                      className="text-xs min-h-[60px] resize-none"
+                      placeholder="Message shown to the trainee..."
+                      value={config.message}
+                      onChange={(e) =>
+                        setEndNodeConfigs((prev) => ({
+                          ...prev,
+                          [endNode.id]: { ...config, message: e.target.value },
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           );
         })}
       </div>
