@@ -41,8 +41,13 @@ export function InspectorPanel({ step, allSteps, onClose, onUpdate }: InspectorP
   }, [step.id, choices, onUpdate]);
 
   const updateChoice = useCallback((choiceId: string, updates: Partial<BranchChoice>) => {
+    const finalUpdates = { ...updates };
+    // Auto-generate actionId from label
+    if ('label' in finalUpdates) {
+      finalUpdates.actionId = (finalUpdates.label ?? '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    }
     onUpdate(step.id, {
-      choices: choices.map(c => c.id === choiceId ? { ...c, ...updates } : c),
+      choices: choices.map(c => c.id === choiceId ? { ...c, ...finalUpdates } : c),
     });
   }, [step.id, choices, onUpdate]);
 
@@ -93,13 +98,13 @@ export function InspectorPanel({ step, allSteps, onClose, onUpdate }: InspectorP
             <div className="flex items-center gap-2">
               <RadioGroupItem value="linear" id="flow-linear" />
               <Label htmlFor="flow-linear" className="text-xs font-normal cursor-pointer">
-                Linear — proceeds to next step
+                Linear — continues to the next step automatically
               </Label>
             </div>
             <div className="flex items-center gap-2">
               <RadioGroupItem value="decision" id="flow-decision" />
               <Label htmlFor="flow-decision" className="text-xs font-normal cursor-pointer">
-                Decision — learner makes a branching choice
+                Decision — the learner picks what to do next
               </Label>
             </div>
           </RadioGroup>
@@ -116,41 +121,33 @@ export function InspectorPanel({ step, allSteps, onClose, onUpdate }: InspectorP
                 </span>
               )}
             </div>
+            <p className="text-[11px] text-muted-foreground -mt-1">What options does the learner see at this point?</p>
 
             {choices.length === 0 && (
-              <p className="text-xs text-destructive">At least one choice is required.</p>
+              <p className="text-xs text-destructive">At least one option is required.</p>
             )}
 
             {choices.map((choice, idx) => (
               <div key={choice.id} className="rounded-md border border-border p-2.5 space-y-2 bg-muted/40">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Choice {idx + 1}
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold">
+                    {String.fromCharCode(65 + idx)}
                   </span>
                   <button onClick={() => removeChoice(choice.id)} className="text-muted-foreground hover:text-destructive">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
                 <div>
-                  <Label className="text-[10px]">Learner-facing Label</Label>
+                  <Label className="text-[10px]">Button Text</Label>
                   <Input
                     value={choice.label}
                     onChange={(e) => updateChoice(choice.id, { label: e.target.value })}
-                    placeholder="e.g. Evacuate area"
+                    placeholder='e.g. "Evacuate the area"'
                     className="mt-0.5 h-7 text-xs"
                   />
                 </div>
                 <div>
-                  <Label className="text-[10px]">Action Identifier</Label>
-                  <Input
-                    value={choice.actionId}
-                    onChange={(e) => updateChoice(choice.id, { actionId: e.target.value })}
-                    placeholder="e.g. evacuate_area"
-                    className="mt-0.5 h-7 text-xs"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px]">Next Step</Label>
+                  <Label className="text-[10px]">Then go to…</Label>
                   <select
                     value={choice.nextStepId}
                     onChange={(e) => updateChoice(choice.id, { nextStepId: e.target.value })}
@@ -167,7 +164,7 @@ export function InspectorPanel({ step, allSteps, onClose, onUpdate }: InspectorP
             ))}
 
             <Button variant="outline" size="sm" className="w-full text-xs gap-1" onClick={addChoice}>
-              <Plus className="w-3 h-3" /> Add Choice
+              <Plus className="w-3 h-3" /> Add Option
             </Button>
           </div>
         )}
