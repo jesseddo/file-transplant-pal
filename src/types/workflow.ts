@@ -91,5 +91,5 @@ export function isDecisionCheckpointValid(step: Step): boolean {
   if (step.flowBehavior !== "decision") return true;
   const choices = step.choices ?? [];
   if (choices.length === 0) return false;
-  return choices.every(c => c.label.trim() !== "" && c.actionId.trim() !== "" && c.nextStepId.trim() !== "");
+  return choices.every(c => c.label.trim() !== "" && c.nextStepId.trim() !== "");
 }
