@@ -49,13 +49,14 @@ export function WorkflowCanvas({
 
   const handleDragOver = useCallback((e: DragEvent, col: ColumnId) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    e.stopPropagation();
     const index = getDropIndex(e, col);
     setDropTarget({ col, index });
   }, [getDropIndex]);
 
   const handleDrop = useCallback((e: DragEvent, col: ColumnId) => {
     e.preventDefault();
+    e.stopPropagation();
     const actionType = e.dataTransfer.getData("application/action-type");
     const actionLabel = e.dataTransfer.getData("application/action-label");
     const index = getDropIndex(e, col);
