@@ -635,7 +635,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
         }}
       >
         {/* SVG connections */}
-        <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 5, width: svgW, height: svgH }}>
+        <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 1, width: svgW, height: svgH }}>
           {svgElements}
         </svg>
 
