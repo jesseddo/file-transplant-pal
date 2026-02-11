@@ -395,7 +395,14 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
               }}
               onMouseDown={(e) => handleNodeMouseDown(e, step.id)}
               onClick={(e) => {
-                if (!dragging) { e.stopPropagation(); onSelectStep(step.id); }
+                if (!dragging) {
+                  e.stopPropagation();
+                  if (isDecision && step.choices && step.choices.length > 0) {
+                    setEditLogicStep(step);
+                  } else {
+                    onSelectStep(step.id);
+                  }
+                }
               }}
             >
               {/* Input handle (left-center) */}
@@ -461,18 +468,6 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
                       {choice.nextStepId === "__end__" && <StopCircle className="w-3 h-3 text-destructive shrink-0 ml-auto" />}
                     </div>
                   ))}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 text-[10px] px-1.5 gap-1 text-muted-foreground hover:text-foreground mt-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditLogicStep(step);
-                    }}
-                  >
-                    <Settings2 className="w-3 h-3" />
-                    Edit logic
-                  </Button>
                 </div>
               )}
             </div>
