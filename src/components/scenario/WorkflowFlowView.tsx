@@ -301,6 +301,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
 
   const [dragging, setDragging] = useState<{ stepId: string; startMouse: { x: number; y: number }; startPos: { x: number; y: number } } | null>(null);
   const hasDragged = useRef(false);
+  const hasAutoFitted = useRef(false);
   const [panning, setPanning] = useState<{ startMouse: { x: number; y: number }; startPan: { x: number; y: number } } | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
 
@@ -327,6 +328,16 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [steps.map(s => s.id).join(",")]);
+
+  // Auto fit-to-view on first mount
+  useEffect(() => {
+    if (Object.keys(positions).length > 0 && !hasAutoFitted.current) {
+      requestAnimationFrame(() => {
+        handleFitToContent();
+        hasAutoFitted.current = true;
+      });
+    }
+  }, [positions]);
 
   // Space key listener
   useEffect(() => {
