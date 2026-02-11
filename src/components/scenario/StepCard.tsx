@@ -1,4 +1,4 @@
-import { X, GripVertical, AlertCircle } from "lucide-react";
+import { X, GripVertical, AlertCircle, GitFork } from "lucide-react";
 import { Step, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid } from "@/types/workflow";
 import { DragEvent } from "react";
 
@@ -13,7 +13,7 @@ export function StepCard({ step, isSelected, onSelect, onRemove }: StepCardProps
   const category = STEP_TYPE_CATEGORY[step.type];
   const badgeClass = CATEGORY_BADGE_CLASS[category];
   const isInterruption = step.type === "interruption";
-  const isDecision = step.type === "decision-checkpoint";
+  const isDecision = step.flowBehavior === "decision";
   const choiceCount = step.choices?.length ?? 0;
   const isIncomplete = isDecision && !isDecisionCheckpointValid(step);
 
@@ -45,6 +45,7 @@ export function StepCard({ step, isSelected, onSelect, onRemove }: StepCardProps
         <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${badgeClass}`}>
           {STEP_TYPE_LABELS[step.type]}
         </span>
+        {isDecision && <GitFork className="w-3 h-3 shrink-0 text-primary" />}
         <button
           onClick={(e) => { e.stopPropagation(); onRemove(); }}
           className="opacity-0 group-hover:opacity-100 shrink-0 text-muted-foreground hover:text-destructive transition-opacity"
@@ -87,9 +88,12 @@ export function StepCard({ step, isSelected, onSelect, onRemove }: StepCardProps
             {STEP_TYPE_LABELS[step.type]}
           </span>
           {isDecision && (
-            <span className="text-[10px] text-muted-foreground">
-              {choiceCount} {choiceCount === 1 ? "choice" : "choices"}
-            </span>
+            <>
+              <GitFork className="w-3 h-3 text-primary shrink-0" />
+              <span className="text-[10px] text-muted-foreground">
+                {choiceCount} {choiceCount === 1 ? "choice" : "choices"}
+              </span>
+            </>
           )}
           {isIncomplete && (
             <AlertCircle className="w-3.5 h-3.5 text-destructive shrink-0" />

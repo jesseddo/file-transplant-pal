@@ -10,11 +10,11 @@ export type StepType =
   | "fetch-document"
   | "generate-evaluation"
   | "interruption"
-  | "parallel-order"
-  | "scene-narrative"
-  | "decision-checkpoint";
+  | "parallel-order";
 
-export type ActionCategory = "Media" | "Simulation" | "Coaching" | "Resources & Compliance" | "Behavioral" | "Flow";
+export type FlowBehavior = "linear" | "decision";
+
+export type ActionCategory = "Media" | "Simulation" | "Coaching" | "Resources & Compliance" | "Behavioral";
 
 export interface ActionTile {
   type: StepType;
@@ -36,9 +36,9 @@ export interface Step {
   type: StepType;
   column: ColumnId;
   order: number;
-  choices?: BranchChoice[]; // only for decision-checkpoint
+  flowBehavior?: FlowBehavior; // defaults to "linear"
+  choices?: BranchChoice[]; // only when flowBehavior === "decision"
 }
-
 
 export const ACTION_TILES: ActionTile[] = [
   { type: "video", label: "Video", category: "Media", icon: "Play" },
@@ -51,8 +51,6 @@ export const ACTION_TILES: ActionTile[] = [
   { type: "generate-evaluation", label: "Generate Evaluation", category: "Resources & Compliance", icon: "ClipboardCheck" },
   { type: "interruption", label: "Interruption", category: "Behavioral", icon: "AlertTriangle" },
   { type: "parallel-order", label: "Parallel Order", category: "Behavioral", icon: "GitBranch" },
-  { type: "scene-narrative", label: "Scene / Narrative", category: "Flow", icon: "BookOpen" },
-  { type: "decision-checkpoint", label: "Decision Checkpoint", category: "Flow", icon: "GitFork" },
 ];
 
 export const STEP_TYPE_LABELS: Record<StepType, string> = {
@@ -66,8 +64,6 @@ export const STEP_TYPE_LABELS: Record<StepType, string> = {
   "generate-evaluation": "Evaluation",
   interruption: "Interruption",
   "parallel-order": "Parallel Order",
-  "scene-narrative": "Scene",
-  "decision-checkpoint": "Decision",
 };
 
 export const STEP_TYPE_CATEGORY: Record<StepType, ActionCategory> = {
@@ -81,8 +77,6 @@ export const STEP_TYPE_CATEGORY: Record<StepType, ActionCategory> = {
   "generate-evaluation": "Resources & Compliance",
   interruption: "Behavioral",
   "parallel-order": "Behavioral",
-  "scene-narrative": "Flow",
-  "decision-checkpoint": "Flow",
 };
 
 export const CATEGORY_BADGE_CLASS: Record<ActionCategory, string> = {
@@ -91,11 +85,10 @@ export const CATEGORY_BADGE_CLASS: Record<ActionCategory, string> = {
   Coaching: "bg-[hsl(var(--badge-coaching))] text-[hsl(var(--badge-coaching-fg))]",
   "Resources & Compliance": "bg-[hsl(var(--badge-resource))] text-[hsl(var(--badge-resource-fg))]",
   Behavioral: "bg-[hsl(var(--badge-behavioral))] text-[hsl(var(--badge-behavioral-fg))]",
-  Flow: "bg-[hsl(var(--badge-flow))] text-[hsl(var(--badge-flow-fg))]",
 };
 
 export function isDecisionCheckpointValid(step: Step): boolean {
-  if (step.type !== "decision-checkpoint") return true;
+  if (step.flowBehavior !== "decision") return true;
   const choices = step.choices ?? [];
   if (choices.length === 0) return false;
   return choices.every(c => c.label.trim() !== "" && c.actionId.trim() !== "" && c.nextStepId.trim() !== "");
