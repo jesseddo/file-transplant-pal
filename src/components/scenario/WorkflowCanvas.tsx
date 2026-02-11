@@ -1,21 +1,14 @@
 import { useState, DragEvent, useCallback } from "react";
-import { Step, Connection, ColumnId } from "@/types/workflow";
+import { Step, ColumnId } from "@/types/workflow";
 import { StepCard } from "./StepCard";
 
 interface CanvasProps {
   steps: Step[];
-  connections: Connection[];
   selectedStepId: string | null;
   selectedColumn: ColumnId;
-  connectingFrom: string | null;
-  selectedConnectionId: string | null;
   onSelectStep: (id: string | null) => void;
   onSelectColumn: (col: ColumnId) => void;
   onRemoveStep: (id: string) => void;
-  onStartConnect: (id: string) => void;
-  onFinishConnect: (id: string) => void;
-  onCancelConnect: () => void;
-  onSelectConnection: (id: string) => void;
   onMoveStep: (stepId: string, toColumn: ColumnId, toIndex: number) => void;
 }
 
@@ -27,18 +20,11 @@ const COLUMNS: { id: ColumnId; label: string; headerClass: string; bgClass: stri
 
 export function WorkflowCanvas({
   steps,
-  connections,
   selectedStepId,
   selectedColumn,
-  connectingFrom,
-  selectedConnectionId,
   onSelectStep,
   onSelectColumn,
   onRemoveStep,
-  onStartConnect,
-  onFinishConnect,
-  onCancelConnect,
-  onSelectConnection,
   onMoveStep,
 }: CanvasProps) {
   const [dropTarget, setDropTarget] = useState<{ col: ColumnId; index: number } | null>(null);
@@ -81,14 +67,7 @@ export function WorkflowCanvas({
   }, []);
 
   return (
-    <div
-      className="flex-1 bg-canvas p-4 overflow-auto relative"
-      onClick={() => {
-        if (connectingFrom) onCancelConnect();
-      }}
-    >
-      {/* Connection SVG removed */}
-
+    <div className="flex-1 bg-canvas p-4 overflow-auto relative">
       <div className="flex gap-3 relative z-20 min-h-[500px]">
         {COLUMNS.map((col) => {
           const colSteps = stepsByColumn(col.id);
@@ -122,23 +101,17 @@ export function WorkflowCanvas({
               >
                 {colSteps.map((step, idx) => (
                   <div key={step.id} data-step-id={step.id}>
-                    {/* Drop indicator line */}
                     {isDropHere && dropTarget.index === idx && (
                       <div className="h-0.5 bg-primary rounded-full mb-2 transition-all" />
                     )}
                     <StepCard
                       step={step}
                       isSelected={selectedStepId === step.id}
-                      isConnecting={connectingFrom === step.id}
-                      connectingFrom={connectingFrom}
                       onSelect={() => onSelectStep(step.id)}
                       onRemove={() => onRemoveStep(step.id)}
-                      onStartConnect={() => onStartConnect(step.id)}
-                      onFinishConnect={() => onFinishConnect(step.id)}
                     />
                   </div>
                 ))}
-                {/* Drop indicator at end */}
                 {isDropHere && dropTarget.index >= colSteps.length && (
                   <div className="h-0.5 bg-primary rounded-full transition-all" />
                 )}
@@ -152,12 +125,6 @@ export function WorkflowCanvas({
           );
         })}
       </div>
-
-      {connectingFrom && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm shadow-lg z-50">
-          Click a step to connect · Press Escape or click canvas to cancel
-        </div>
-      )}
     </div>
   );
 }

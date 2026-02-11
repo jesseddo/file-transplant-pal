@@ -29,12 +29,6 @@ export interface Step {
   order: number;
 }
 
-export interface Connection {
-  id: string;
-  fromStepId: string;
-  toStepId: string;
-  condition?: string;
-}
 
 export const ACTION_TILES: ActionTile[] = [
   { type: "video", label: "Video", category: "Media", icon: "Play" },

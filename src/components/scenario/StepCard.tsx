@@ -1,28 +1,15 @@
-import { X, ArrowRight, GripVertical } from "lucide-react";
+import { X, GripVertical } from "lucide-react";
 import { Step, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS } from "@/types/workflow";
 import { DragEvent } from "react";
 
 interface StepCardProps {
   step: Step;
   isSelected: boolean;
-  isConnecting: boolean;
-  connectingFrom: string | null;
   onSelect: () => void;
   onRemove: () => void;
-  onStartConnect: () => void;
-  onFinishConnect: () => void;
 }
 
-export function StepCard({
-  step,
-  isSelected,
-  isConnecting,
-  connectingFrom,
-  onSelect,
-  onRemove,
-  onStartConnect,
-  onFinishConnect,
-}: StepCardProps) {
+export function StepCard({ step, isSelected, onSelect, onRemove }: StepCardProps) {
   const category = STEP_TYPE_CATEGORY[step.type];
   const badgeClass = CATEGORY_BADGE_CLASS[category];
   const isInterruption = step.type === "interruption";
@@ -43,7 +30,7 @@ export function StepCard({
         draggable
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        onClick={connectingFrom ? onFinishConnect : onSelect}
+        onClick={onSelect}
         className={`relative group flex items-center gap-2 px-3 py-1.5 rounded-full border-2 border-dashed cursor-grab active:cursor-grabbing transition-all text-xs ${
           isSelected
             ? "border-primary bg-primary/5 shadow-sm"
@@ -70,12 +57,12 @@ export function StepCard({
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      onClick={connectingFrom ? onFinishConnect : onSelect}
+      onClick={onSelect}
       className={`relative group rounded-lg border-2 cursor-grab active:cursor-grabbing transition-all ${
         isSelected
           ? "border-primary bg-primary/5 shadow-md"
           : "border-[hsl(var(--step-border))] bg-card hover:border-primary/40 hover:shadow-sm"
-      } ${connectingFrom ? "ring-2 ring-primary/20" : ""}`}
+      }`}
     >
       <div className="px-3 py-2.5">
         <div className="flex items-start justify-between gap-2">
@@ -94,16 +81,6 @@ export function StepCard({
           {STEP_TYPE_LABELS[step.type]}
         </span>
       </div>
-
-      {!connectingFrom && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onStartConnect(); }}
-          className="absolute -right-2.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow transition-opacity"
-          title="Draw connection"
-        >
-          <ArrowRight className="w-3 h-3" />
-        </button>
-      )}
     </div>
   );
 }
