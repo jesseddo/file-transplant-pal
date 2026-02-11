@@ -37,9 +37,9 @@ interface EndNodeInfo {
 const COLUMN_ORDER: ColumnId[] = ["intro", "simulation", "review"];
 const LANE_X_START = 80;
 const LANE_Y_START = 60;
-const COLUMN_GAP = 180; // gap between column groups
-const NODE_X_GAP = 360; // horizontal gap between nodes within main path
-const NODE_Y_GAP = 180; // vertical gap between rows
+const COLUMN_GAP = 200; // gap between column groups
+const NODE_X_GAP = 320; // horizontal gap between nodes within main path
+const NODE_Y_GAP = 200; // vertical gap between rows
 
 const BRANCH_COLORS = [
   "hsl(var(--primary))",
@@ -93,7 +93,7 @@ function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
     }
   }
 
-  // Identify branch-only targets (not on main path)
+  // Identify branch-only targets (not on main path, not back-references)
   const branchTargets = new Set<string>();
   conns.forEach((c) => {
     if (c.type === "branch" && c.toId !== "__end__" && !mainPathIds.has(c.toId)) {
@@ -101,22 +101,7 @@ function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
     }
   });
 
-  // Position main path nodes: fully horizontal, each node gets its own X
-  let xCursor = LANE_X_START;
-  let lastCol: ColumnId | null = null;
-
-  const mainSteps = mainPathOrder.map((id) => steps.find((s) => s.id === id)!).filter(Boolean);
-
-  mainSteps.forEach((step) => {
-    if (lastCol !== null && step.column !== lastCol) {
-      xCursor += COLUMN_GAP; // extra gap between phase columns
-    }
-    positions[step.id] = { x: xCursor, y: LANE_Y_START };
-    xCursor += NODE_X_GAP;
-    lastCol = step.column;
-  });
-
-  // Position branch targets: fan out below their source decision node, spread horizontally
+  // Collect off-main-path branch targets per decision node
   const decisionBranches: Record<string, string[]> = {};
   conns.forEach((c) => {
     if (c.type === "branch" && c.toId !== "__end__" && branchTargets.has(c.toId)) {
@@ -127,6 +112,33 @@ function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
     }
   });
 
+  // Position main path nodes: fully horizontal, decision nodes reserve extra space
+  let xCursor = LANE_X_START;
+  let lastCol: ColumnId | null = null;
+
+  const mainSteps = mainPathOrder.map((id) => steps.find((s) => s.id === id)!).filter(Boolean);
+
+  mainSteps.forEach((step) => {
+    if (lastCol !== null && step.column !== lastCol) {
+      xCursor += COLUMN_GAP; // extra gap between phase columns
+    }
+    positions[step.id] = { x: xCursor, y: LANE_Y_START };
+    lastCol = step.column;
+
+    // Reserve extra horizontal space for decision nodes with off-path branches
+    const offPathTargets = decisionBranches[step.id];
+    const offPathCount = offPathTargets ? offPathTargets.length : 0;
+
+    if (offPathCount > 1) {
+      // Reserve enough room so branches can fan out without colliding with the next main-path node
+      const reservedWidth = Math.max(NODE_X_GAP, offPathCount * NODE_X_GAP * 0.6);
+      xCursor += reservedWidth;
+    } else {
+      xCursor += NODE_X_GAP;
+    }
+  });
+
+  // Position branch targets: fan out below their source decision node, spread horizontally
   Object.entries(decisionBranches).forEach(([sourceId, targets]) => {
     const sourcePos = positions[sourceId];
     if (!sourcePos) return;
@@ -490,15 +502,17 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
         if (!positions[endId]) {
           const fromPos = positions[conn.fromId];
           if (fromPos) {
-            const yOff = conn.branchIndex !== undefined ? BRANCH_HANDLE_TOP_START + conn.branchIndex * BRANCH_HANDLE_SPACING : NODE_H / 2;
-            // Count how many end nodes already exist from this source to stack them
+            // Place end nodes to the right and below their source, stacked vertically
             const existingEndCount = Object.keys(positions).filter(
               (k) => k.startsWith("__end__") && positions[k] &&
-                Math.abs(positions[k].x - (fromPos.x + NODE_W + 200)) < 10
+                Math.abs(positions[k].x - (fromPos.x + NODE_X_GAP * 0.7)) < 10
             ).length;
             setPositions((prev) => ({
               ...prev,
-              [endId]: { x: fromPos.x + NODE_W + 200, y: fromPos.y + yOff + 80 + existingEndCount * 50 },
+              [endId]: {
+                x: fromPos.x + NODE_X_GAP * 0.7,
+                y: fromPos.y + NODE_Y_GAP + existingEndCount * (NODE_H + 60),
+              },
             }));
           }
         }
