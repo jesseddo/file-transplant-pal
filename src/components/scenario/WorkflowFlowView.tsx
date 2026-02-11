@@ -124,8 +124,8 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
       } else {
         e.preventDefault();
         setPan((p) => ({
-          x: p.x - e.deltaX - e.deltaY,
-          y: p.y,
+          x: p.x - (e.deltaX + e.deltaY),
+          y: p.y - (e.shiftKey ? e.deltaY : 0),
         }));
       }
     };
