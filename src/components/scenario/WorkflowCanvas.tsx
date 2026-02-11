@@ -1,5 +1,5 @@
 import { useState, DragEvent, useCallback } from "react";
-import { Step, ColumnId } from "@/types/workflow";
+import { Step, ColumnId, StepType } from "@/types/workflow";
 import { StepCard } from "./StepCard";
 
 interface CanvasProps {
@@ -10,6 +10,7 @@ interface CanvasProps {
   onSelectColumn: (col: ColumnId) => void;
   onRemoveStep: (id: string) => void;
   onMoveStep: (stepId: string, toColumn: ColumnId, toIndex: number) => void;
+  onAddStepToColumn: (type: StepType, label: string, column: ColumnId, index: number) => void;
 }
 
 const COLUMNS: { id: ColumnId; label: string; headerClass: string; bgClass: string }[] = [
@@ -26,6 +27,7 @@ export function WorkflowCanvas({
   onSelectColumn,
   onRemoveStep,
   onMoveStep,
+  onAddStepToColumn,
 }: CanvasProps) {
   const [dropTarget, setDropTarget] = useState<{ col: ColumnId; index: number } | null>(null);
 
@@ -54,13 +56,21 @@ export function WorkflowCanvas({
 
   const handleDrop = useCallback((e: DragEvent, col: ColumnId) => {
     e.preventDefault();
-    const stepId = e.dataTransfer.getData("text/plain");
-    if (!stepId) return;
+    const actionType = e.dataTransfer.getData("application/action-type");
+    const actionLabel = e.dataTransfer.getData("application/action-label");
     const index = getDropIndex(e, col);
-    onMoveStep(stepId, col, index);
+
+    if (actionType && actionLabel) {
+      onAddStepToColumn(actionType as StepType, actionLabel, col, index);
+    } else {
+      const stepId = e.dataTransfer.getData("text/plain");
+      if (stepId) {
+        onMoveStep(stepId, col, index);
+      }
+    }
     onSelectColumn(col);
     setDropTarget(null);
-  }, [getDropIndex, onMoveStep, onSelectColumn]);
+  }, [getDropIndex, onMoveStep, onSelectColumn, onAddStepToColumn]);
 
   const handleDragLeave = useCallback(() => {
     setDropTarget(null);
