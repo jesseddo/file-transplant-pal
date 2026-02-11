@@ -92,7 +92,7 @@ export function WorkflowCanvas({
                   ? "border-primary/50 bg-primary/5"
                   : isActive
                   ? "border-primary/30"
-                  : "border-transparent"
+                  : "border-border"
               } ${col.bgClass}`}
               onClick={(e) => {
                 e.stopPropagation();
