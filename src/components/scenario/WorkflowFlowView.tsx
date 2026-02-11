@@ -182,12 +182,12 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep }: Workfl
   return (
     <div className="flex-1 overflow-auto bg-[hsl(var(--canvas))] p-6 relative" ref={containerRef}>
       {/* SVG overlay */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+      <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
         {paths}
       </svg>
 
       {/* Columns */}
-      <div className="flex gap-8 min-w-[720px] relative z-20">
+      <div className="flex gap-8 min-w-[720px] relative z-10">
         {COLUMN_ORDER.map((col) => (
           <div key={col} className="flex-1 min-w-[220px]">
             <div className={cn(
