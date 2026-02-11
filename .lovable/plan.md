@@ -1,69 +1,92 @@
 
 
-# Add Workflow View Toggle
+# P-101 Isobutane Pump Recommissioning -- Branching Scenario Data
 
 ## Overview
 
-Add a "Workflow" tab next to the existing "Design" tab that provides a read-only node-and-edge visualization of scenario flow and branching logic. The Design tab remains unchanged as the content authoring view. No data structures are modified.
+Replace the current 6-step placeholder data in `useWorkflow.ts` with a realistic **P-101 Isobutane Pump Recommissioning** scenario that includes decision points and branching. This will demonstrate the Workflow view's visualization capabilities without changing any data structures or components.
 
-## Changes
+## The Scenario (Domain Context)
 
-### 1. Add Workflow tab -- `src/pages/Index.tsx`
+A field operator is recommissioning an isobutane pump (P-101) after maintenance. The training scenario walks them through safety orientation, a simulated field task with decision checkpoints, and a final review/evaluation.
 
-- Add "Workflow" to the tab list: `["Design", "Workflow", "Dependencies", "Settings", "Preview"]`
-- Default remains `"design"`
-- When `activeTab === "workflow"`, render a new `WorkflowFlowView` component
-- The InspectorPanel still opens when a step is selected (clicking a node in workflow view selects it)
-- Switching tabs does not reset any state -- `useWorkflow` hook and `selectedStepId` persist across views
+## Proposed Steps and Branching
 
-### 2. Create `src/components/scenario/WorkflowFlowView.tsx` (new file)
+### Intro Column (3 steps)
+1. **P-101 Overview Video** (video) -- orientation video about the pump system
+2. **Recommissioning SOP** (pdf) -- standard operating procedure document
+3. **Pre-Task Safety Audio Brief** (audio) -- audio walkthrough of hazards
 
-A read-only visualization component receiving `steps`, `selectedStepId`, and `onSelectStep` props.
+### Simulation Column (5 steps, including 2 decision points)
+4. **Radio: Confirm Isolation Status** (radio-call) -- trainee calls control room to verify isolation
+5. **Verify Line-up Checklist** (text-chat, DECISION) -- trainee verifies valve positions via chat simulation
+   - Branch A: "All valves correct" --> proceeds to step 6
+   - Branch B: "Valve misalignment found" --> goes to step 7 (interruption for corrective action)
+6. **Fetch Clearance Permit** (fetch-document) -- retrieve the work permit
+7. **Handle Valve Misalignment** (interruption) -- corrective action for the error path
+8. **Startup Authorization Check** (text-chat, DECISION) -- control room grants or denies startup
+   - Branch A: "Startup approved" --> proceeds to step 9 (review)
+   - Branch B: "Startup denied -- recheck" --> loops back to step 5
+   - Branch C: "Emergency condition" --> ends scenario
 
-**Layout:**
-- Three column groups (Intro, Simulation, Review) arranged left-to-right
-- Steps rendered as compact node cards within each column, stacked vertically by order
-- An SVG overlay draws connection lines between nodes
+### Review Column (2 steps)
+9. **AI Coach: Recommissioning Debrief** (ai-coach) -- reflection on decisions made
+10. **Generate Competency Report** (generate-evaluation) -- final evaluation
 
-**Node rendering:**
-- Each node shows: step title, type badge, and a fork icon if `flowBehavior === "decision"`
-- Clicking a node calls `onSelectStep` to open the existing inspector panel (same as Design view)
-- Selected node gets a highlighted border
-- Decision steps get a distinct visual highlight (colored border or badge)
+## Flow Visualization (what the Workflow tab will show)
 
-**Edge rendering:**
-- Linear flow: gray curved SVG paths connecting each step to the next in sequence (within columns and across column boundaries)
-- Decision branches: colored SVG paths from decision steps to each choice's `nextStepId` target, with small labels showing choice text
-- Terminal nodes: a small "End" pill rendered when `nextStepId === "__end__"`
-- Connections computed using `useRef` + `useEffect` to measure node positions after render, recalculated when steps change
+```text
+INTRO                    SIMULATION                              REVIEW
++-----------------+      +-------------------------+
+| P-101 Overview  |----->| Radio: Confirm          |
+| (video)         |      | Isolation Status        |
++-----------------+      +-------------------------+
+                                  |
++-----------------+      +-------------------------+
+| Recommissioning |      | Verify Line-up          |
+| SOP (pdf)       |      | Checklist (DECISION)    |--+
++-----------------+      +---+---------------------+  |
+                              |                        |
++-----------------+      "All valves    "Valve         |
+| Pre-Task Safety |      correct"      misalignment"   |
+| Audio (audio)   |         |               |          |
++-----------------+         v               v          |
+                     +-------------+ +---------------+ |
+                     | Fetch       | | Handle Valve  | |
+                     | Clearance   | | Misalignment  | |
+                     | Permit      | | (interruption)| |
+                     +------+------+ +-------+-------+ |
+                            |                |          |
+                            +---+------------+          |
+                                |                       |
+                     +----------v-----------+           |
+                     | Startup Auth Check   |           |
+                     | (DECISION)           |           |
+                     +--+-------+--------+--+           |
+                        |       |        |              |
+                  "Approved" "Denied" "Emergency"       |
+                        |    (back to    |              |
+                        |    Verify)   [END]     +------+------+
+                        |       |                | AI Coach    |
+                        +-------+--------------->| Debrief     |
+                                                 +------+------+
+                                                        |
+                                                 +------v------+
+                                                 | Generate    |
+                                                 | Report      |
+                                                 +-------------+
+```
 
-**Validation hints (informational only, non-blocking):**
-- Decision steps with missing or incomplete connections show an orange border and warning icon
-- Steps that end the scenario show an "End" indicator
-- No blocking errors
+## Technical Changes
 
-**Constraints enforced in this component:**
-- No step creation, deletion, or reordering
-- No editing of branching rules (inspector is used for review only from this view)
-- No drag-and-drop
-- Purely a visualization layer reading from the existing `steps` array
+### File: `src/hooks/useWorkflow.ts`
 
-### 3. Minor style additions -- `src/index.css`
+Replace the `INITIAL_STEPS` array with 10 steps. Two steps use `flowBehavior: "decision"` with populated `choices` arrays:
 
-- Add CSS for workflow node cards, edge colors, and the "End" terminal pill (reusing existing theme tokens)
+- Step s5 ("Verify Line-up Checklist"): 2 branches
+- Step s8 ("Startup Authorization Check"): 3 branches (including one `__end__`)
 
-## What stays the same
+Update `nextId` to `11`.
 
-- All step data structures (`Step`, `BranchChoice`, `FlowBehavior`) unchanged
-- The `useWorkflow` hook unchanged
-- Design tab, WorkflowCanvas, StepCard, ActionsPanel, InspectorPanel all unchanged
-- No branching logic duplicated -- workflow view reads the same data
-
-## File summary
-
-| File | Action |
-|------|--------|
-| `src/pages/Index.tsx` | Edit -- add "Workflow" tab, conditionally render WorkflowFlowView |
-| `src/components/scenario/WorkflowFlowView.tsx` | Create -- node-and-edge flow visualization |
-| `src/index.css` | Minor additions for workflow node and edge styling |
+No other files change. The existing `WorkflowFlowView` component will automatically render the nodes and SVG connections from this data.
 
