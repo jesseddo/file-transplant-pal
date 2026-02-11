@@ -33,7 +33,15 @@ export function EditLogicModal({ open, onOpenChange, step, allSteps, onSave }: E
   // Initialize from step data when modal opens
   useEffect(() => {
     if (open) {
-      setRules(step.routingRules?.length ? [...step.routingRules] : []);
+      if (step.routingRules?.length) {
+        setRules([...step.routingRules]);
+      } else {
+        // Auto-populate from existing choices that have routing set
+        const autoRules = (step.choices ?? [])
+          .filter((c) => c.nextStepId && c.nextStepId !== "")
+          .map((c) => ({ choiceId: c.id, nextStepId: c.nextStepId! }));
+        setRules(autoRules);
+      }
       setFallback(step.fallbackNextStepId || "");
     }
   }, [open, step]);
