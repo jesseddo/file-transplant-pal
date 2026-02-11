@@ -2,15 +2,39 @@ import { useState, useCallback } from "react";
 import { Step, ColumnId, StepType } from "@/types/workflow";
 
 const INITIAL_STEPS: Step[] = [
-  { id: "s1", title: "Orientation & Media", type: "video", column: "intro", order: 0 },
-  { id: "s2", title: "Safety Briefing PDF", type: "pdf", column: "intro", order: 1 },
-  { id: "s3", title: "Radio Check-in", type: "radio-call", column: "simulation", order: 0 },
-  { id: "s4", title: "Isolation Verification", type: "text-chat", column: "simulation", order: 1 },
-  { id: "s5", title: "Coach Review & Unlocks", type: "ai-coach", column: "review", order: 0 },
-  { id: "s6", title: "Generate Report", type: "generate-evaluation", column: "review", order: 1 },
+  // Intro column
+  { id: "s1", title: "P-101 Overview Video", type: "video", column: "intro", order: 0 },
+  { id: "s2", title: "Recommissioning SOP", type: "pdf", column: "intro", order: 1 },
+  { id: "s3", title: "Pre-Task Safety Audio Brief", type: "audio", column: "intro", order: 2 },
+
+  // Simulation column
+  { id: "s4", title: "Radio: Confirm Isolation Status", type: "radio-call", column: "simulation", order: 0 },
+  {
+    id: "s5", title: "Verify Line-up Checklist", type: "text-chat", column: "simulation", order: 1,
+    flowBehavior: "decision",
+    choices: [
+      { id: "c5a", label: "All valves correct", actionId: "proceed", nextStepId: "s6" },
+      { id: "c5b", label: "Valve misalignment found", actionId: "corrective", nextStepId: "s7" },
+    ],
+  },
+  { id: "s6", title: "Fetch Clearance Permit", type: "fetch-document", column: "simulation", order: 2 },
+  { id: "s7", title: "Handle Valve Misalignment", type: "interruption", column: "simulation", order: 3 },
+  {
+    id: "s8", title: "Startup Authorization Check", type: "text-chat", column: "simulation", order: 4,
+    flowBehavior: "decision",
+    choices: [
+      { id: "c8a", label: "Startup approved", actionId: "approve", nextStepId: "s9" },
+      { id: "c8b", label: "Startup denied — recheck", actionId: "deny", nextStepId: "s5" },
+      { id: "c8c", label: "Emergency condition", actionId: "emergency", nextStepId: "__end__" },
+    ],
+  },
+
+  // Review column
+  { id: "s9", title: "AI Coach: Recommissioning Debrief", type: "ai-coach", column: "review", order: 0 },
+  { id: "s10", title: "Generate Competency Report", type: "generate-evaluation", column: "review", order: 1 },
 ];
 
-let nextId = 7;
+let nextId = 11;
 
 export function useWorkflow() {
   const [steps, setSteps] = useState<Step[]>(INITIAL_STEPS);
