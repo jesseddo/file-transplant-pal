@@ -1,18 +1,48 @@
-import { Step, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS } from "@/types/workflow";
-import { X } from "lucide-react";
+import { Step, BranchChoice, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid } from "@/types/workflow";
+import { X, Plus, Trash2, AlertCircle, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { useCallback } from "react";
 
 interface InspectorPanelProps {
   step: Step;
+  allSteps: Step[];
   onClose: () => void;
   onUpdate: (id: string, updates: Partial<Step>) => void;
 }
 
-export function InspectorPanel({ step, onClose, onUpdate }: InspectorPanelProps) {
+export function InspectorPanel({ step, allSteps, onClose, onUpdate }: InspectorPanelProps) {
   const category = STEP_TYPE_CATEGORY[step.type];
   const badgeClass = CATEGORY_BADGE_CLASS[category];
+  const isDecision = step.type === "decision-checkpoint";
+  const isScene = step.type === "scene-narrative";
+  const choices = step.choices ?? [];
+  const isValid = isDecisionCheckpointValid(step);
+
+  const addChoice = useCallback(() => {
+    const newChoice: BranchChoice = {
+      id: `ch-${Date.now()}`,
+      label: "",
+      actionId: "",
+      nextStepId: "",
+    };
+    onUpdate(step.id, { choices: [...choices, newChoice] });
+  }, [step.id, choices, onUpdate]);
+
+  const updateChoice = useCallback((choiceId: string, updates: Partial<BranchChoice>) => {
+    onUpdate(step.id, {
+      choices: choices.map(c => c.id === choiceId ? { ...c, ...updates } : c),
+    });
+  }, [step.id, choices, onUpdate]);
+
+  const removeChoice = useCallback((choiceId: string) => {
+    onUpdate(step.id, { choices: choices.filter(c => c.id !== choiceId) });
+  }, [step.id, choices, onUpdate]);
+
+  // Steps available as "next step" targets (excluding self)
+  const targetOptions = allSteps.filter(s => s.id !== step.id);
 
   return (
     <div className="w-72 shrink-0 border-l border-border bg-card h-full overflow-y-auto scrollbar-thin">
@@ -48,7 +78,84 @@ export function InspectorPanel({ step, onClose, onUpdate }: InspectorPanelProps)
 
         <hr className="border-border" />
 
-        {/* Mock fields based on step type */}
+        {/* Scene / Narrative — linear only notice */}
+        {isScene && (
+          <div className="flex items-start gap-2 rounded-md bg-muted px-3 py-2">
+            <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground">
+              Scene / Narrative steps use linear flow only. No branching choices can be added.
+            </p>
+          </div>
+        )}
+
+        {/* Decision Checkpoint — choices editor */}
+        {isDecision && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-bold">Learner Choices</Label>
+              {!isValid && (
+                <span className="flex items-center gap-1 text-[10px] text-destructive font-medium">
+                  <AlertCircle className="w-3 h-3" /> Incomplete
+                </span>
+              )}
+            </div>
+
+            {choices.length === 0 && (
+              <p className="text-xs text-destructive">At least one choice is required.</p>
+            )}
+
+            {choices.map((choice, idx) => (
+              <div key={choice.id} className="rounded-md border border-border p-2.5 space-y-2 bg-muted/40">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Choice {idx + 1}
+                  </span>
+                  <button onClick={() => removeChoice(choice.id)} className="text-muted-foreground hover:text-destructive">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+                <div>
+                  <Label className="text-[10px]">Learner-facing Label</Label>
+                  <Input
+                    value={choice.label}
+                    onChange={(e) => updateChoice(choice.id, { label: e.target.value })}
+                    placeholder="e.g. Evacuate area"
+                    className="mt-0.5 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Action Identifier</Label>
+                  <Input
+                    value={choice.actionId}
+                    onChange={(e) => updateChoice(choice.id, { actionId: e.target.value })}
+                    placeholder="e.g. evacuate_area"
+                    className="mt-0.5 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Next Step</Label>
+                  <select
+                    value={choice.nextStepId}
+                    onChange={(e) => updateChoice(choice.id, { nextStepId: e.target.value })}
+                    className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                  >
+                    <option value="">— Select target —</option>
+                    {targetOptions.map(s => (
+                      <option key={s.id} value={s.id}>{s.title} ({STEP_TYPE_LABELS[s.type]})</option>
+                    ))}
+                    <option value="__end__">End Scenario</option>
+                  </select>
+                </div>
+              </div>
+            ))}
+
+            <Button variant="outline" size="sm" className="w-full text-xs gap-1" onClick={addChoice}>
+              <Plus className="w-3 h-3" /> Add Choice
+            </Button>
+          </div>
+        )}
+
+        {/* Existing type-specific fields (non-flow types) */}
         {(step.type === "video" || step.type === "audio") && (
           <>
             <div>
