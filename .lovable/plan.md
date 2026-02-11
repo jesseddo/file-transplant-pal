@@ -1,69 +1,69 @@
 
 
-# Restructure: Decision Checkpoint and Scene/Narrative as Step Behaviors
+# Add Workflow View Toggle
 
 ## Overview
 
-Currently, "Decision Checkpoint" and "Scene/Narrative" are standalone step types in the Actions panel. The user wants them to be **behavioral modifiers** that can be applied to any step type. For example, a "Radio Call" step can have a decision checkpoint embedded, meaning the learner must make a branching choice during that radio call.
+Add a "Workflow" tab next to the existing "Design" tab that provides a read-only node-and-edge visualization of scenario flow and branching logic. The Design tab remains unchanged as the content authoring view. No data structures are modified.
 
-## Architecture Change
+## Changes
 
-Instead of `type: "decision-checkpoint"`, every step will have an optional `flowBehavior` property:
+### 1. Add Workflow tab -- `src/pages/Index.tsx`
 
-```text
-flowBehavior: "linear" (default) | "decision"
-```
+- Add "Workflow" to the tab list: `["Design", "Workflow", "Dependencies", "Settings", "Preview"]`
+- Default remains `"design"`
+- When `activeTab === "workflow"`, render a new `WorkflowFlowView` component
+- The InspectorPanel still opens when a step is selected (clicking a node in workflow view selects it)
+- Switching tabs does not reset any state -- `useWorkflow` hook and `selectedStepId` persist across views
 
-- **linear** (default / Scene-Narrative): The step flows to the next step in order. No branching.
-- **decision**: The step includes branching choices. At least one choice is required with label, action ID, and next-step target.
+### 2. Create `src/components/scenario/WorkflowFlowView.tsx` (new file)
 
-## Detailed Changes
+A read-only visualization component receiving `steps`, `selectedStepId`, and `onSelectStep` props.
 
-### 1. Update `src/types/workflow.ts`
+**Layout:**
+- Three column groups (Intro, Simulation, Review) arranged left-to-right
+- Steps rendered as compact node cards within each column, stacked vertically by order
+- An SVG overlay draws connection lines between nodes
 
-- Remove `"scene-narrative"` and `"decision-checkpoint"` from `StepType` union
-- Remove them from `ACTION_TILES`, `STEP_TYPE_LABELS`, `STEP_TYPE_CATEGORY`
-- Add a new type: `FlowBehavior = "linear" | "decision"`
-- Add `flowBehavior?: FlowBehavior` to the `Step` interface (defaults to `"linear"`)
-- Update `isDecisionCheckpointValid` to check `step.flowBehavior === "decision"` instead of `step.type`
+**Node rendering:**
+- Each node shows: step title, type badge, and a fork icon if `flowBehavior === "decision"`
+- Clicking a node calls `onSelectStep` to open the existing inspector panel (same as Design view)
+- Selected node gets a highlighted border
+- Decision steps get a distinct visual highlight (colored border or badge)
 
-### 2. Update `src/components/scenario/StepCard.tsx`
+**Edge rendering:**
+- Linear flow: gray curved SVG paths connecting each step to the next in sequence (within columns and across column boundaries)
+- Decision branches: colored SVG paths from decision steps to each choice's `nextStepId` target, with small labels showing choice text
+- Terminal nodes: a small "End" pill rendered when `nextStepId === "__end__"`
+- Connections computed using `useRef` + `useEffect` to measure node positions after render, recalculated when steps change
 
-- Replace `step.type === "decision-checkpoint"` checks with `step.flowBehavior === "decision"`
-- Show choice count and warning icon based on `flowBehavior`, not `type`
-- Add a small indicator (e.g., a fork icon) on any card that has `flowBehavior: "decision"` so it's visually clear this step branches
+**Validation hints (informational only, non-blocking):**
+- Decision steps with missing or incomplete connections show an orange border and warning icon
+- Steps that end the scenario show an "End" indicator
+- No blocking errors
 
-### 3. Update `src/components/scenario/InspectorPanel.tsx`
+**Constraints enforced in this component:**
+- No step creation, deletion, or reordering
+- No editing of branching rules (inspector is used for review only from this view)
+- No drag-and-drop
+- Purely a visualization layer reading from the existing `steps` array
 
-- Remove the Scene/Narrative info box and Decision Checkpoint section that are gated on `step.type`
-- Add a **Flow Behavior** selector (radio group or dropdown) near the top of the inspector for ALL step types:
-  - "Linear" -- step proceeds to next in order
-  - "Decision" -- step includes branching choices
-- When "Decision" is selected, show the choices editor (same UI as today)
-- When "Linear" is selected, hide the choices editor and clear any existing choices
+### 3. Minor style additions -- `src/index.css`
 
-### 4. Update `src/components/scenario/ActionsPanel.tsx`
-
-- Remove "Scene / Narrative" and "Decision Checkpoint" tiles from the Flow category
-- Remove the "Flow" category entirely if it becomes empty
-- Remove `BookOpen` and `GitFork` icon imports if unused
-
-### 5. Update `src/index.css`
-
-- Remove the Flow badge CSS variables (`--badge-flow`, `--badge-flow-fg`) since the Flow category no longer exists
-
-### 6. Update `src/hooks/useWorkflow.ts`
-
-- No structural changes needed; the `addStep` / `updateStep` functions already handle partial updates which will cover `flowBehavior`
+- Add CSS for workflow node cards, edge colors, and the "End" terminal pill (reusing existing theme tokens)
 
 ## What stays the same
 
-- The `BranchChoice` interface and choice validation logic remain
-- The choices editor UI in the inspector stays identical
-- Drag-and-drop, column layout, and all other step types are untouched
-- No scoring, conditions, timers, or runtime logic
+- All step data structures (`Step`, `BranchChoice`, `FlowBehavior`) unchanged
+- The `useWorkflow` hook unchanged
+- Design tab, WorkflowCanvas, StepCard, ActionsPanel, InspectorPanel all unchanged
+- No branching logic duplicated -- workflow view reads the same data
 
-## Result
+## File summary
 
-Any step (Video, Radio Call, Text Chat, etc.) can be toggled to "Decision" mode in its inspector, gaining branching choices. By default all steps are "Linear." This matches the real-world pattern where a decision point happens *within* an activity rather than as a separate standalone card.
+| File | Action |
+|------|--------|
+| `src/pages/Index.tsx` | Edit -- add "Workflow" tab, conditionally render WorkflowFlowView |
+| `src/components/scenario/WorkflowFlowView.tsx` | Create -- node-and-edge flow visualization |
+| `src/index.css` | Minor additions for workflow node and edge styling |
 
