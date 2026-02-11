@@ -18,6 +18,8 @@ interface Connection {
   type: "linear" | "branch";
   label?: string;
   color?: string;
+  branchIndex?: number;
+  branchTotal?: number;
 }
 
 const COLUMN_ORDER: ColumnId[] = ["intro", "simulation", "review"];
@@ -32,6 +34,15 @@ const BRANCH_COLORS = [
   "hsl(30, 80%, 50%)",
   "hsl(260, 70%, 50%)",
 ];
+
+// Node dimensions
+const NODE_W = 220;
+const NODE_H = 70;
+const HANDLE_SIZE = 10;
+// Vertical spacing between branch output handles
+const BRANCH_HANDLE_SPACING = 16;
+// Top offset for first branch handle (below badge row)
+const BRANCH_HANDLE_TOP_START = 52;
 
 function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
   const positions: Record<string, { x: number; y: number }> = {};
@@ -56,6 +67,7 @@ function buildConnections(steps: Step[]): Connection[] {
   for (let i = 0; i < flatOrder.length; i++) {
     const step = flatOrder[i];
     if (step.flowBehavior === "decision" && step.choices && step.choices.length > 0) {
+      const total = step.choices.length;
       step.choices.forEach((choice, ci) => {
         connections.push({
           fromId: step.id,
@@ -63,6 +75,8 @@ function buildConnections(steps: Step[]): Connection[] {
           type: "branch",
           label: choice.label,
           color: BRANCH_COLORS[ci % BRANCH_COLORS.length],
+          branchIndex: ci,
+          branchTotal: total,
         });
       });
     } else if (i < flatOrder.length - 1) {
@@ -72,9 +86,18 @@ function buildConnections(steps: Step[]): Connection[] {
   return connections;
 }
 
-// Node dimensions (approximate for connection drawing)
-const NODE_W = 220;
-const NODE_H = 70;
+// Handle position helpers
+function getInputHandlePos(pos: { x: number; y: number }) {
+  return { x: pos.x, y: pos.y + NODE_H / 2 };
+}
+
+function getOutputHandlePos(pos: { x: number; y: number }, branchIndex?: number, branchTotal?: number) {
+  if (branchIndex !== undefined && branchTotal !== undefined && branchTotal > 0) {
+    const y = pos.y + BRANCH_HANDLE_TOP_START + branchIndex * BRANCH_HANDLE_SPACING;
+    return { x: pos.x + NODE_W, y };
+  }
+  return { x: pos.x + NODE_W, y: pos.y + NODE_H / 2 };
+}
 
 export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdateStep }: WorkflowFlowViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -82,14 +105,11 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
 
-  // Dragging state
   const [dragging, setDragging] = useState<{ stepId: string; startMouse: { x: number; y: number }; startPos: { x: number; y: number } } | null>(null);
-  // Panning state
   const [panning, setPanning] = useState<{ startMouse: { x: number; y: number }; startPan: { x: number; y: number } } | null>(null);
-  // Space key state for pan mode
   const [spaceHeld, setSpaceHeld] = useState(false);
 
-  // Initialize positions from step data or auto-layout
+  // Initialize positions
   useEffect(() => {
     const pos: Record<string, { x: number; y: number }> = {};
     const fallback = autoPosition(steps);
@@ -103,7 +123,6 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
       }
     });
     setPositions(pos);
-    // Persist fallback positions
     if (needsUpdate) {
       steps.forEach((s) => {
         if (!s.ui?.position && pos[s.id]) {
@@ -111,11 +130,10 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
         }
       });
     }
-    // Only run on step count/id changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [steps.map(s => s.id).join(",")]);
 
-  // Space key listener for pan mode
+  // Space key listener
   useEffect(() => {
     const down = (e: KeyboardEvent) => { if (e.code === "Space" && !e.repeat) setSpaceHeld(true); };
     const up = (e: KeyboardEvent) => { if (e.code === "Space") setSpaceHeld(false); };
@@ -132,7 +150,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     };
   }, []);
 
-  // Wheel scroll: zoom only (Ctrl+scroll), let native scroll handle the rest
+  // Wheel: zoom only on Ctrl+scroll
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -154,46 +172,31 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
         const dy = (e.clientY - dragging.startMouse.y) / zoom;
         setPositions((prev) => ({
           ...prev,
-          [dragging.stepId]: {
-            x: dragging.startPos.x + dx,
-            y: dragging.startPos.y + dy,
-          },
+          [dragging.stepId]: { x: dragging.startPos.x + dx, y: dragging.startPos.y + dy },
         }));
       }
       if (panning) {
-        setPan({
-          x: panning.startPan.x + (e.clientX - panning.startMouse.x),
-          y: panning.startPan.y + (e.clientY - panning.startMouse.y),
-        });
+        setPan({ x: panning.startPan.x + (e.clientX - panning.startMouse.x), y: panning.startPan.y + (e.clientY - panning.startMouse.y) });
       }
     };
     const handleUp = () => {
       if (dragging) {
         const pos = positions[dragging.stepId];
-        if (pos) {
-          onUpdateStep(dragging.stepId, { ui: { position: pos } });
-        }
+        if (pos) onUpdateStep(dragging.stepId, { ui: { position: pos } });
         setDragging(null);
       }
       if (panning) setPanning(null);
     };
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("mouseup", handleUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
-    };
+    return () => { window.removeEventListener("mousemove", handleMove); window.removeEventListener("mouseup", handleUp); };
   }, [dragging, panning, zoom, positions, onUpdateStep]);
 
   const handleNodeMouseDown = (e: React.MouseEvent, stepId: string) => {
     e.stopPropagation();
     const pos = positions[stepId];
     if (!pos) return;
-    setDragging({
-      stepId,
-      startMouse: { x: e.clientX, y: e.clientY },
-      startPos: { ...pos },
-    });
+    setDragging({ stepId, startMouse: { x: e.clientX, y: e.clientY }, startPos: { ...pos } });
   };
 
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
@@ -201,19 +204,14 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     if (!isCanvas) return;
     if ((spaceHeld && e.button === 0) || e.button === 1) {
       e.preventDefault();
-      setPanning({
-        startMouse: { x: e.clientX, y: e.clientY },
-        startPan: { ...pan },
-      });
+      setPanning({ startMouse: { x: e.clientX, y: e.clientY }, startPan: { ...pan } });
     }
   };
 
   const handleAutoArrange = () => {
     const newPos = autoPosition(steps);
     setPositions(newPos);
-    steps.forEach((s) => {
-      onUpdateStep(s.id, { ui: { position: newPos[s.id] } });
-    });
+    steps.forEach((s) => onUpdateStep(s.id, { ui: { position: newPos[s.id] } }));
   };
 
   const handleFitToContent = () => {
@@ -235,14 +233,34 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     });
   };
 
-  // Build SVG connections
+  // Build connections & compute target offsets
   const connections = buildConnections(steps);
+
+  // Count how many edges target the same node for vertical offset
+  const targetCounts: Record<string, number> = {};
+  const targetIndices: Map<Connection, number> = new Map();
+  connections.forEach((conn) => {
+    if (conn.toId && conn.toId !== "__end__") {
+      targetCounts[conn.toId] = (targetCounts[conn.toId] || 0) + 1;
+    }
+  });
+  const targetCurrentIndex: Record<string, number> = {};
+  connections.forEach((conn) => {
+    if (conn.toId && conn.toId !== "__end__") {
+      const idx = targetCurrentIndex[conn.toId] || 0;
+      targetIndices.set(conn, idx);
+      targetCurrentIndex[conn.toId] = idx + 1;
+    }
+  });
+
   const svgElements: JSX.Element[] = [];
   connections.forEach((conn, i) => {
     const fromPos = positions[conn.fromId];
     if (!fromPos) return;
-    const x1 = fromPos.x + NODE_W;
-    const y1 = fromPos.y + NODE_H / 2;
+
+    const outPos = getOutputHandlePos(fromPos, conn.branchIndex, conn.branchTotal);
+    const x1 = outPos.x;
+    const y1 = outPos.y;
 
     if (conn.toId === "__end__") {
       const endX = x1 + 50;
@@ -251,6 +269,11 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
           <path d={`M ${x1} ${y1} L ${endX} ${y1}`} stroke={conn.color || "hsl(0, 72%, 51%)"} strokeWidth={2} fill="none" strokeDasharray="6 3" />
           <rect x={endX} y={y1 - 11} width={48} height={22} rx={11} fill="hsl(0, 72%, 51%)" />
           <text x={endX + 24} y={y1 + 4} textAnchor="middle" fill="white" fontSize={11} fontWeight={600}>End</text>
+          {conn.label && (
+            <text x={x1 + 14} y={y1 - 4} textAnchor="start" fill={conn.color || "hsl(0, 72%, 51%)"} fontSize={10} fontWeight={500} className="select-none">
+              {conn.label}
+            </text>
+          )}
         </g>
       );
       return;
@@ -258,18 +281,29 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
 
     const toPos = positions[conn.toId];
     if (!toPos) return;
-    const x2 = toPos.x;
-    const y2 = toPos.y + NODE_H / 2;
-    const offsetX = Math.abs(x2 - x1) * 0.4;
+
+    const inPos = getInputHandlePos(toPos);
+    // Apply vertical offset for multiple incoming edges
+    const tCount = targetCounts[conn.toId] || 1;
+    const tIdx = targetIndices.get(conn) || 0;
+    const targetYOffset = (tIdx - (tCount - 1) / 2) * 12;
+
+    const x2 = inPos.x;
+    const y2 = inPos.y + targetYOffset;
+
     const strokeColor = conn.type === "branch" ? (conn.color || "hsl(var(--primary))") : "hsl(var(--muted-foreground) / 0.35)";
     const strokeWidth = conn.type === "branch" ? 2 : 1.5;
 
+    // Orthogonal smooth-step routing
+    const midX = (x1 + x2) / 2;
+    const pathData = `M ${x1} ${y1} H ${midX} V ${y2} H ${x2}`;
+
     svgElements.push(
       <g key={`conn-${i}`}>
-        <path d={`M ${x1} ${y1} C ${x1 + offsetX} ${y1}, ${x2 - offsetX} ${y2}, ${x2} ${y2}`} stroke={strokeColor} strokeWidth={strokeWidth} fill="none" />
+        <path d={pathData} stroke={strokeColor} strokeWidth={strokeWidth} fill="none" />
         <circle cx={x2} cy={y2} r={3} fill={strokeColor} />
         {conn.label && (
-          <text x={(x1 + x2) / 2} y={Math.min(y1, y2) - 6} textAnchor="middle" fill={strokeColor} fontSize={10} fontWeight={500} className="select-none">
+          <text x={x1 + 14} y={y1 - 4} textAnchor="start" fill={strokeColor} fontSize={10} fontWeight={500} className="select-none">
             {conn.label}
           </text>
         )}
@@ -277,7 +311,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     );
   });
 
-  // Compute SVG bounds
+  // SVG bounds
   const allPos = Object.values(positions);
   const svgW = allPos.length > 0 ? Math.max(...allPos.map((p) => p.x)) + NODE_W + 200 : 2000;
   const svgH = allPos.length > 0 ? Math.max(...allPos.map((p) => p.y)) + NODE_H + 200 : 1000;
@@ -289,7 +323,6 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
       onMouseDown={handleCanvasMouseDown}
       style={{ cursor: panning ? "grabbing" : spaceHeld ? "grab" : "default" }}
     >
-      {/* Canvas layer */}
       <div
         style={{
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
@@ -299,16 +332,12 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
           height: svgH,
         }}
       >
-        {/* SVG connections - z-index 1 */}
-        <svg
-          className="absolute inset-0 pointer-events-none"
-          style={{ zIndex: 1, width: svgW, height: svgH }}
-        >
+        {/* SVG connections */}
+        <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 1, width: svgW, height: svgH }}>
           {svgElements}
         </svg>
 
-
-        {/* Step nodes - z-index 2 */}
+        {/* Step nodes */}
         {steps.map((step) => {
           const pos = positions[step.id];
           if (!pos) return null;
@@ -339,13 +368,48 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
               }}
               onMouseDown={(e) => handleNodeMouseDown(e, step.id)}
               onClick={(e) => {
-                // Only select if not dragged
-                if (!dragging) {
-                  e.stopPropagation();
-                  onSelectStep(step.id);
-                }
+                if (!dragging) { e.stopPropagation(); onSelectStep(step.id); }
               }}
             >
+              {/* Input handle (left-center) */}
+              <div
+                className="absolute rounded-full border-2 border-muted-foreground/40 bg-card"
+                style={{
+                  width: HANDLE_SIZE,
+                  height: HANDLE_SIZE,
+                  left: -(HANDLE_SIZE / 2),
+                  top: `calc(50% - ${HANDLE_SIZE / 2}px)`,
+                }}
+              />
+
+              {/* Output handle(s) (right side) */}
+              {isDecision && step.choices && step.choices.length > 0 ? (
+                step.choices.map((choice, ci) => (
+                  <div
+                    key={choice.id}
+                    className="absolute rounded-full border-2"
+                    style={{
+                      width: HANDLE_SIZE,
+                      height: HANDLE_SIZE,
+                      right: -(HANDLE_SIZE / 2),
+                      top: BRANCH_HANDLE_TOP_START + ci * BRANCH_HANDLE_SPACING - HANDLE_SIZE / 2,
+                      borderColor: BRANCH_COLORS[ci % BRANCH_COLORS.length],
+                      backgroundColor: BRANCH_COLORS[ci % BRANCH_COLORS.length],
+                    }}
+                  />
+                ))
+              ) : (
+                <div
+                  className="absolute rounded-full border-2 border-muted-foreground/40 bg-card"
+                  style={{
+                    width: HANDLE_SIZE,
+                    height: HANDLE_SIZE,
+                    right: -(HANDLE_SIZE / 2),
+                    top: `calc(50% - ${HANDLE_SIZE / 2}px)`,
+                  }}
+                />
+              )}
+
               <div className="flex items-center gap-2 mb-1.5">
                 {isDecision && <GitBranch className="w-3.5 h-3.5 text-primary shrink-0" />}
                 <span className="text-sm font-medium text-foreground truncate">{step.title}</span>
