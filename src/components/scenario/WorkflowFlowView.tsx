@@ -272,8 +272,14 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
       ref={containerRef}
       className="flex-1 overflow-hidden bg-[hsl(var(--canvas))] relative select-none"
       onMouseDown={handleCanvasMouseDown}
-      style={{ cursor: panning ? "grabbing" : "default" }}
+      style={{ cursor: panning ? "grabbing" : "grab" }}
     >
+      {/* Click-drag background layer */}
+      <div
+        data-canvas-bg="true"
+        className="absolute inset-0"
+        style={{ width: "200%", height: "200%", zIndex: 0 }}
+      />
       {/* Canvas layer */}
       <div
         style={{
