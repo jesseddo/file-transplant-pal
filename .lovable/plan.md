@@ -1,76 +1,102 @@
 
 
-# Workflow View: Proper Scrollable Canvas with Clean Layering
+# Draggable Workflow Canvas (Typeform-style)
 
-## Problem
+## Overview
 
-The current Workflow view has layering issues -- arrows and cards compete for z-index, and the layout doesn't behave like a true visual graph canvas. The SVG coordinates also break when the container scrolls because `getBoundingClientRect()` doesn't account for scroll offset.
+Transform the Workflow tab from a static column-based view into a free-form, pan/zoom canvas where nodes can be dragged around -- similar to the Typeform screenshot you shared. The Design tab and all step/branching data structures remain untouched.
 
-## Approach
+## What Changes
 
-Restructure `WorkflowFlowView.tsx` into a two-layer canvas architecture inside a scrollable outer container. Add optional mouse-wheel zoom.
+### 1. Extend the Step type with optional UI position
 
-## Architecture
+Add an optional `ui` field to the `Step` interface so each node can store its canvas position. If missing, nodes auto-layout into vertical lanes by phase.
 
 ```text
-Outer container (overflow: auto, catches scroll)
-  Inner canvas (min-width: 2400px, position: relative)
-    Layer 1: SVG (absolute, full canvas size, z-index: 1, pointer-events: none)
-    Layer 2: Step cards (relative, z-index: 2)
+Step {
+  ...existing fields...
+  ui?: { position: { x: number; y: number } }
+}
 ```
 
-## Technical Changes
+### 2. New draggable canvas component
 
-### File: `src/components/scenario/WorkflowFlowView.tsx`
+Replace the current `WorkflowFlowView` internals with a pan/zoom canvas that:
 
-**1. Two-ref architecture**
+- Renders each step as a draggable node at its `ui.position` (or auto-computed fallback)
+- Supports mouse-drag to reposition nodes (updates `step.ui.position` via `onUpdate`)
+- Supports canvas panning (middle-click or hold Space + drag)
+- SVG connection lines render behind nodes (z-index 1 vs 2)
 
-- `scrollRef` -- the outer scrollable div (`overflow: auto`, clips the viewport)
-- `canvasRef` -- the inner wide div (`min-width: 2400px`, `position: relative`)
+### 3. Canvas controls toolbar
 
-**2. Fix SVG coordinate calculation**
+A small floating toolbar in the bottom-left corner with:
 
-Replace `getBoundingClientRect()` math with `offsetLeft`/`offsetTop` relative to `canvasRef`, which is scroll-independent. This fixes the root cause of arrows misaligning when scrolled.
+- Zoom In / Zoom Out buttons
+- Reset Zoom (back to 100%)
+- Fit to Content (auto-zoom to show all nodes)
+- Auto Arrange (re-computes lane positions without changing branching)
 
-**3. Correct layering (arrows behind cards)**
+### 4. Connection lines
 
-- SVG layer: `position: absolute`, `inset: 0`, `z-index: 1`, `pointer-events: none`
-- Cards layer: `position: relative`, `z-index: 2`
+Same logic as today but on the free-form canvas:
 
-Arrows render *behind* cards -- the opposite of the previous fix. Since cards are `z-index: 2`, they always sit on top. Arrow paths route between card anchor points (bottom-center to top-center) but never overlap card content.
+- Linear connections: gray lines between consecutive steps
+- Branch connections: colored per choice (existing color palette)
+- End markers: dashed line to a red "End" pill
+- SVG layer is `pointer-events: none`, always behind node cards
 
-**4. SVG sized to canvas, not viewport**
+### 5. Auto-arrange algorithm
 
-Instead of `w-full h-full` (which sizes to the visible area), the SVG dimensions are set to match the actual canvas scroll dimensions (`canvasRef.scrollWidth` x `canvasRef.scrollHeight`). This ensures arrows render correctly across the full canvas even when scrolled.
+When clicked, computes positions in vertical lanes per column:
 
-**5. Column layout**
+```text
+INTRO column:     x = 100
+SIMULATION column: x = 450
+REVIEW column:     x = 800
 
-- Three columns evenly spaced across the wide canvas (each `flex-1`, with `min-w-[300px]`)
-- Generous gap between columns (`gap-16`) so branch arrows have room to curve
+Within each column: y = 80 + (index * 140)
+```
 
-**6. Optional zoom**
+This resets all `ui.position` values without changing step order or branching.
 
-- Track a `zoom` state (default `1`, range `0.5`--`1.5`)
-- Apply `transform: scale(zoom)` + `transform-origin: top left` to the inner canvas
-- Listen for `wheel` events with Ctrl/Cmd held on the outer container to adjust zoom
-- Display a small zoom indicator badge in the corner
+## Technical Details
 
-**7. Recompute on scroll**
+### Files modified
 
-- Listen for `scroll` events on the outer container to recompute SVG paths (since `getBoundingClientRect` shifts with scroll)
-- Or better: use offset-based coordinates so scroll doesn't affect path math at all (preferred)
+| File | Change |
+|------|--------|
+| `src/types/workflow.ts` | Add `ui?: { position: { x: number; y: number } }` to `Step` interface |
+| `src/components/scenario/WorkflowFlowView.tsx` | Full rewrite: free-form canvas with drag, pan, zoom |
+| `src/hooks/useWorkflow.ts` | Add `updateNodePosition` callback; pass `onUpdate` to Workflow view |
+| `src/pages/Index.tsx` | Pass `onUpdate` prop to `WorkflowFlowView` |
 
-### No other files change
+### Canvas implementation approach
 
-- `Index.tsx` -- unchanged
-- `useWorkflow.ts` -- unchanged
-- `workflow.ts` types -- unchanged
-- Design view -- unchanged
+- Track `canvasOffset` (pan) and `zoom` in local state
+- Apply `transform: translate(panX, panY) scale(zoom)` to the inner canvas layer
+- Node drag: `onMouseDown` on a node starts tracking, `onMouseMove` updates position (accounting for zoom), `onMouseUp` commits via `onUpdate`
+- Canvas pan: `onMouseDown` on empty canvas area starts pan tracking
+- All coordinates stored in "canvas space" (unscaled), rendering transforms handle display
+
+### Node rendering
+
+Each node is absolutely positioned at `(step.ui.position.x, step.ui.position.y)` inside the transformed canvas. Card content stays the same (title, badge, branch indicators).
+
+### Fallback positioning
+
+If a step has no `ui.position`, auto-place it using the lane algorithm on first render. This ensures backward compatibility with existing step data.
+
+### Workflow tab remains editable for positions only
+
+Node positions can be changed by dragging. Step content editing still happens via the Inspector panel (already wired up). Branching logic is unchanged.
 
 ## What the user will see
 
-- A wide, horizontally scrollable canvas
-- Cards clearly on top of any connection lines
-- Branch arrows curve cleanly between cards without overlapping card content
+- A large open canvas with nodes floating freely
+- Drag any node to reposition it
+- Pan the canvas by clicking empty space and dragging
 - Ctrl+scroll to zoom in/out
-- Small zoom level indicator in the corner
+- Toolbar buttons for zoom controls, fit-to-content, and auto-arrange
+- Connection lines clearly visible behind cards
+- Clicking a node still opens the Inspector panel on the right
