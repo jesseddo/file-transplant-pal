@@ -127,17 +127,71 @@ function bezierMidpoint(
   };
 }
 
-// Handle position helpers
-function getInputHandlePos(pos: { x: number; y: number }) {
-  return { x: pos.x, y: pos.y + NODE_H / 2 };
+type Direction = 'right' | 'bottom' | 'left' | 'top';
+
+function getDirection(fromPos: { x: number; y: number }, toPos: { x: number; y: number }): Direction {
+  const fromCx = fromPos.x + NODE_W / 2;
+  const fromCy = fromPos.y + NODE_H / 2;
+  const toCx = toPos.x + NODE_W / 2;
+  const toCy = toPos.y + NODE_H / 2;
+  const dx = toCx - fromCx;
+  const dy = toCy - fromCy;
+  // Use aspect-ratio-adjusted comparison so horizontal bias matches wide nodes
+  if (Math.abs(dx) * (NODE_H / NODE_W) >= Math.abs(dy)) {
+    return dx >= 0 ? 'right' : 'left';
+  }
+  return dy >= 0 ? 'bottom' : 'top';
 }
 
-function getOutputHandlePos(pos: { x: number; y: number }, branchIndex?: number, branchTotal?: number) {
+function getSmartOutputPos(
+  sourcePos: { x: number; y: number },
+  targetPos: { x: number; y: number },
+  branchIndex?: number,
+  branchTotal?: number
+): { x: number; y: number; direction: Direction } {
+  const dir = getDirection(sourcePos, targetPos);
+  // For branch handles, stack along the chosen side
   if (branchIndex !== undefined && branchTotal !== undefined && branchTotal > 0) {
-    const y = pos.y + BRANCH_HANDLE_TOP_START + branchIndex * BRANCH_HANDLE_SPACING;
-    return { x: pos.x + NODE_W, y };
+    const spacing = BRANCH_HANDLE_SPACING;
+    if (dir === 'right' || dir === 'left') {
+      const y = sourcePos.y + BRANCH_HANDLE_TOP_START + branchIndex * spacing;
+      return { x: dir === 'right' ? sourcePos.x + NODE_W : sourcePos.x, y, direction: dir };
+    }
+    // bottom/top: stack horizontally
+    const totalW = (branchTotal - 1) * spacing;
+    const startX = sourcePos.x + NODE_W / 2 - totalW / 2;
+    const x = startX + branchIndex * spacing;
+    return { x, y: dir === 'bottom' ? sourcePos.y + NODE_H : sourcePos.y, direction: dir };
   }
-  return { x: pos.x + NODE_W, y: pos.y + NODE_H / 2 };
+  switch (dir) {
+    case 'right':  return { x: sourcePos.x + NODE_W, y: sourcePos.y + NODE_H / 2, direction: dir };
+    case 'left':   return { x: sourcePos.x, y: sourcePos.y + NODE_H / 2, direction: dir };
+    case 'bottom': return { x: sourcePos.x + NODE_W / 2, y: sourcePos.y + NODE_H, direction: dir };
+    case 'top':    return { x: sourcePos.x + NODE_W / 2, y: sourcePos.y, direction: dir };
+  }
+}
+
+function getSmartInputPos(
+  targetPos: { x: number; y: number },
+  sourcePos: { x: number; y: number }
+): { x: number; y: number; direction: Direction } {
+  // Direction from target toward source, then attach on that side
+  const dir = getDirection(targetPos, sourcePos);
+  switch (dir) {
+    case 'right':  return { x: targetPos.x + NODE_W, y: targetPos.y + NODE_H / 2, direction: dir };
+    case 'left':   return { x: targetPos.x, y: targetPos.y + NODE_H / 2, direction: dir };
+    case 'bottom': return { x: targetPos.x + NODE_W / 2, y: targetPos.y + NODE_H, direction: dir };
+    case 'top':    return { x: targetPos.x + NODE_W / 2, y: targetPos.y, direction: dir };
+  }
+}
+
+function controlPoint(x: number, y: number, dir: Direction, offset: number): { x: number; y: number } {
+  switch (dir) {
+    case 'right':  return { x: x + offset, y };
+    case 'left':   return { x: x - offset, y };
+    case 'bottom': return { x, y: y + offset };
+    case 'top':    return { x, y: y - offset };
+  }
 }
 
 export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdateStep }: WorkflowFlowViewProps) {
@@ -305,11 +359,10 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     const fromPos = positions[conn.fromId];
     if (!fromPos) return;
 
-    const outPos = getOutputHandlePos(fromPos, conn.branchIndex, conn.branchTotal);
-    const x1 = outPos.x;
-    const y1 = outPos.y;
-
     if (conn.toId === "__end__") {
+      // For __end__, always exit right
+      const x1 = fromPos.x + NODE_W;
+      const y1 = fromPos.y + (conn.branchIndex !== undefined ? BRANCH_HANDLE_TOP_START + conn.branchIndex * BRANCH_HANDLE_SPACING : NODE_H / 2);
       const endX = x1 + 80;
       const endOffset = Math.min(120, Math.max(60, 80 * 0.3));
       const endPath = `M ${x1} ${y1} C ${x1 + endOffset} ${y1}, ${endX - endOffset} ${y1}, ${endX} ${y1}`;
@@ -338,31 +391,29 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     const toPos = positions[conn.toId];
     if (!toPos) return;
 
-    const inPos = getInputHandlePos(toPos);
-    const tCount = targetCounts[conn.toId] || 1;
-    const tIdx = targetIndices.get(conn) || 0;
-    const targetYOffset = (tIdx - (tCount - 1) / 2) * 12;
-
-    const x2 = inPos.x;
-    const y2 = inPos.y + targetYOffset;
+    const out = getSmartOutputPos(fromPos, toPos, conn.branchIndex, conn.branchTotal);
+    const inp = getSmartInputPos(toPos, fromPos);
+    const x1 = out.x;
+    const y1 = out.y;
+    const x2 = inp.x;
+    const y2 = inp.y;
 
     const strokeColor = conn.type === "branch" ? (conn.color || "hsl(var(--primary))") : "hsl(var(--muted-foreground) / 0.35)";
-    const strokeWidth = conn.type === "branch" ? 2 : 1.5;
+    const sw = conn.type === "branch" ? 2 : 1.5;
 
-    // Smooth Bezier routing
-    const offset = Math.min(120, Math.max(60, Math.abs(x2 - x1) * 0.3));
-    const cx1 = x1 + offset;
-    const cx2 = x2 - offset;
-    const pathData = `M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`;
+    const offset = Math.min(120, Math.max(60, Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) * 0.3));
+    const cp1 = controlPoint(x1, y1, out.direction, offset);
+    const cp2 = controlPoint(x2, y2, inp.direction, offset);
+    const pathData = `M ${x1} ${y1} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${x2} ${y2}`;
     const isDashed = conn.label === "fallback";
 
     svgElements.push(
       <g key={`conn-${i}`}>
         <path d={pathData} stroke="transparent" strokeWidth={14} fill="none" />
-        <path d={pathData} stroke={strokeColor} strokeWidth={strokeWidth} fill="none" strokeDasharray={isDashed ? "6 3" : undefined} />
+        <path d={pathData} stroke={strokeColor} strokeWidth={sw} fill="none" strokeDasharray={isDashed ? "6 3" : undefined} />
         <circle cx={x2} cy={y2} r={3} fill={strokeColor} />
         {conn.label && (() => {
-          const mid = bezierMidpoint(x1, y1, cx1, y1, cx2, y2, x2, y2);
+          const mid = bezierMidpoint(x1, y1, cp1.x, cp1.y, cp2.x, cp2.y, x2, y2);
           const textW = conn.label!.length * 6 + 12;
           return (
             <>
@@ -442,44 +493,23 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
                 }
               }}
             >
-              {/* Input handle (left-center) */}
-              <div
-                className="absolute rounded-full border-2 border-muted-foreground/40 bg-card"
-                style={{
-                  width: HANDLE_SIZE,
-                  height: HANDLE_SIZE,
-                  left: -(HANDLE_SIZE / 2),
-                  top: `calc(50% - ${HANDLE_SIZE / 2}px)`,
-                }}
-              />
-
-              {/* Output handle(s) (right side) */}
-              {isDecision && step.choices && step.choices.length > 0 ? (
-                step.choices.map((choice, ci) => (
+              {/* Decorative handles on all four sides */}
+              {(['left', 'right', 'top', 'bottom'] as const).map((side) => {
+                const sizeStyle = { width: HANDLE_SIZE, height: HANDLE_SIZE } as React.CSSProperties;
+                switch (side) {
+                  case 'left':   Object.assign(sizeStyle, { left: -(HANDLE_SIZE / 2), top: `calc(50% - ${HANDLE_SIZE / 2}px)` }); break;
+                  case 'right':  Object.assign(sizeStyle, { right: -(HANDLE_SIZE / 2), top: `calc(50% - ${HANDLE_SIZE / 2}px)` }); break;
+                  case 'top':    Object.assign(sizeStyle, { top: -(HANDLE_SIZE / 2), left: `calc(50% - ${HANDLE_SIZE / 2}px)` }); break;
+                  case 'bottom': Object.assign(sizeStyle, { bottom: -(HANDLE_SIZE / 2), left: `calc(50% - ${HANDLE_SIZE / 2}px)` }); break;
+                }
+                return (
                   <div
-                    key={choice.id}
-                    className="absolute rounded-full border-2"
-                    style={{
-                      width: HANDLE_SIZE,
-                      height: HANDLE_SIZE,
-                      right: -(HANDLE_SIZE / 2),
-                      top: BRANCH_HANDLE_TOP_START + ci * BRANCH_HANDLE_SPACING - HANDLE_SIZE / 2,
-                      borderColor: BRANCH_COLORS[ci % BRANCH_COLORS.length],
-                      backgroundColor: BRANCH_COLORS[ci % BRANCH_COLORS.length],
-                    }}
+                    key={side}
+                    className="absolute rounded-full border-2 border-muted-foreground/20 bg-card opacity-50"
+                    style={sizeStyle}
                   />
-                ))
-              ) : (
-                <div
-                  className="absolute rounded-full border-2 border-muted-foreground/40 bg-card"
-                  style={{
-                    width: HANDLE_SIZE,
-                    height: HANDLE_SIZE,
-                    right: -(HANDLE_SIZE / 2),
-                    top: `calc(50% - ${HANDLE_SIZE / 2}px)`,
-                  }}
-                />
-              )}
+                );
+              })}
 
               <div className="flex items-center gap-2 mb-1.5">
                 {isDecision && <GitBranch className="w-3.5 h-3.5 text-primary shrink-0" />}
