@@ -30,6 +30,11 @@ export interface BranchChoice {
   nextStepId: string; // step id or "__end__" for end scenario
 }
 
+export interface RoutingRule {
+  choiceId: string;
+  nextStepId: string;
+}
+
 export interface Step {
   id: string;
   title: string;
@@ -38,6 +43,8 @@ export interface Step {
   order: number;
   flowBehavior?: FlowBehavior; // defaults to "linear"
   choices?: BranchChoice[]; // only when flowBehavior === "decision"
+  routingRules?: RoutingRule[]; // ordered routing rules for decision steps
+  fallbackNextStepId?: string; // destination for uncovered choices
   ui?: { position: { x: number; y: number } };
 }
 

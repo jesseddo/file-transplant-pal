@@ -1,9 +1,10 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { Step, ColumnId, StepType, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid } from "@/types/workflow";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, GitBranch, StopCircle, ZoomIn, ZoomOut, Maximize, LayoutGrid, RotateCcw } from "lucide-react";
+import { AlertTriangle, GitBranch, StopCircle, ZoomIn, ZoomOut, Maximize, LayoutGrid, RotateCcw, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { EditLogicModal } from "@/components/scenario/EditLogicModal";
 
 interface WorkflowFlowViewProps {
   steps: Step[];
@@ -67,18 +68,43 @@ function buildConnections(steps: Step[]): Connection[] {
   for (let i = 0; i < flatOrder.length; i++) {
     const step = flatOrder[i];
     if (step.flowBehavior === "decision" && step.choices && step.choices.length > 0) {
-      const total = step.choices.length;
-      step.choices.forEach((choice, ci) => {
-        connections.push({
-          fromId: step.id,
-          toId: choice.nextStepId || "",
-          type: "branch",
-          label: choice.label,
-          color: BRANCH_COLORS[ci % BRANCH_COLORS.length],
-          branchIndex: ci,
-          branchTotal: total,
+      // Prefer routingRules if defined
+      if (step.routingRules && step.routingRules.length > 0) {
+        step.routingRules.forEach((rule, idx) => {
+          const choice = step.choices?.find((c) => c.id === rule.choiceId);
+          connections.push({
+            fromId: step.id,
+            toId: rule.nextStepId || "",
+            type: "branch",
+            label: choice?.label,
+            color: BRANCH_COLORS[idx % BRANCH_COLORS.length],
+            branchIndex: idx,
+            branchTotal: step.routingRules!.length,
+          });
         });
-      });
+        if (step.fallbackNextStepId && step.fallbackNextStepId !== "__none__") {
+          connections.push({
+            fromId: step.id,
+            toId: step.fallbackNextStepId,
+            type: "linear",
+            label: "fallback",
+          });
+        }
+      } else {
+        // Fall back to choices[].nextStepId
+        const total = step.choices.length;
+        step.choices.forEach((choice, ci) => {
+          connections.push({
+            fromId: step.id,
+            toId: choice.nextStepId || "",
+            type: "branch",
+            label: choice.label,
+            color: BRANCH_COLORS[ci % BRANCH_COLORS.length],
+            branchIndex: ci,
+            branchTotal: total,
+          });
+        });
+      }
     } else if (i < flatOrder.length - 1) {
       connections.push({ fromId: step.id, toId: flatOrder[i + 1].id, type: "linear" });
     }
@@ -104,6 +130,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [editLogicStep, setEditLogicStep] = useState<Step | null>(null);
 
   const [dragging, setDragging] = useState<{ stepId: string; startMouse: { x: number; y: number }; startPos: { x: number; y: number } } | null>(null);
   const [panning, setPanning] = useState<{ startMouse: { x: number; y: number }; startPan: { x: number; y: number } } | null>(null);
@@ -434,6 +461,18 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
                       {choice.nextStepId === "__end__" && <StopCircle className="w-3 h-3 text-destructive shrink-0 ml-auto" />}
                     </div>
                   ))}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 text-[10px] px-1.5 gap-1 text-muted-foreground hover:text-foreground mt-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditLogicStep(step);
+                    }}
+                  >
+                    <Settings2 className="w-3 h-3" />
+                    Edit logic
+                  </Button>
                 </div>
               )}
             </div>
@@ -461,6 +500,17 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
           <LayoutGrid className="w-4 h-4" />
         </Button>
       </div>
+
+      {/* Edit Logic Modal */}
+      {editLogicStep && (
+        <EditLogicModal
+          open={!!editLogicStep}
+          onOpenChange={(open) => { if (!open) setEditLogicStep(null); }}
+          step={editLogicStep}
+          allSteps={steps}
+          onSave={onUpdateStep}
+        />
+      )}
     </div>
   );
 }
