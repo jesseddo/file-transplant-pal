@@ -101,28 +101,22 @@ function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
     }
   });
 
-  // Position main path nodes: column-grouped, vertical stacking within columns
+  // Position main path nodes: fully horizontal, each node gets its own X
   let xCursor = LANE_X_START;
   let lastCol: ColumnId | null = null;
-  const colYCursors: Record<string, number> = {};
 
   const mainSteps = mainPathOrder.map((id) => steps.find((s) => s.id === id)!).filter(Boolean);
 
   mainSteps.forEach((step) => {
     if (lastCol !== null && step.column !== lastCol) {
-      xCursor += COLUMN_GAP + NODE_X_GAP;
+      xCursor += COLUMN_GAP; // extra gap between phase columns
     }
-    const colKey = step.column;
-    if (colYCursors[colKey] === undefined) {
-      colYCursors[colKey] = LANE_Y_START;
-    }
-    positions[step.id] = { x: xCursor, y: colYCursors[colKey] };
-    colYCursors[colKey] += NODE_Y_GAP;
-    // Don't advance xCursor for same-column nodes; only advance when column changes
+    positions[step.id] = { x: xCursor, y: LANE_Y_START };
+    xCursor += NODE_X_GAP;
     lastCol = step.column;
   });
 
-  // Position branch targets: below and to the right of their source decision node
+  // Position branch targets: fan out below their source decision node, spread horizontally
   const decisionBranches: Record<string, string[]> = {};
   conns.forEach((c) => {
     if (c.type === "branch" && c.toId !== "__end__" && branchTargets.has(c.toId)) {
@@ -136,11 +130,14 @@ function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
   Object.entries(decisionBranches).forEach(([sourceId, targets]) => {
     const sourcePos = positions[sourceId];
     if (!sourcePos) return;
+    // Fan branches horizontally below the source, centered under it
+    const totalWidth = (targets.length - 1) * NODE_X_GAP;
+    const startX = sourcePos.x - totalWidth / 2;
     targets.forEach((targetId, idx) => {
-      if (positions[targetId]) return; // already placed
+      if (positions[targetId]) return;
       positions[targetId] = {
-        x: sourcePos.x + NODE_X_GAP / 2,
-        y: sourcePos.y + NODE_Y_GAP + idx * NODE_Y_GAP,
+        x: startX + idx * NODE_X_GAP,
+        y: sourcePos.y + NODE_Y_GAP,
       };
     });
   });
