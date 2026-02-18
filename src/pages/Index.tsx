@@ -99,7 +99,6 @@ const Index = () => {
               onRemoveStep={wf.removeStep}
               onMoveStep={wf.moveStep}
               onAddStepToColumn={wf.addStepToColumn}
-              onAddScene={() => setAddSceneOpen(true)}
             />
 
             {wf.selectedStep ? (
@@ -111,7 +110,7 @@ const Index = () => {
                 onUpdate={wf.updateStep}
               />
             ) : (
-              <ActionsPanel onAddStep={wf.addStep} />
+              <ActionsPanel onAddStep={wf.addStep} onAddScene={() => setAddSceneOpen(true)} />
             )}
           </div>
         )}

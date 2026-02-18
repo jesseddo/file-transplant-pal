@@ -3,6 +3,7 @@ import {
   Play, FileText, Headphones, MessageSquare, Radio,
   Brain, Download, ClipboardCheck, AlertTriangle, GitBranch,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { StepType } from "@/types/workflow";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -16,11 +17,24 @@ const CATEGORIES: ActionCategory[] = [
 
 interface ActionsPanelProps {
   onAddStep: (type: StepType, label: string) => void;
+  onAddScene?: () => void;
 }
 
-export function ActionsPanel({ onAddStep }: ActionsPanelProps) {
+export function ActionsPanel({ onAddStep, onAddScene }: ActionsPanelProps) {
   return (
     <aside className="w-56 shrink-0 border-l border-border bg-actions-panel h-full overflow-y-auto scrollbar-thin">
+      {onAddScene && (
+        <div className="px-4 py-3 border-b border-border">
+          <Button
+            variant="default"
+            size="sm"
+            className="w-full gap-1.5 text-xs"
+            onClick={onAddScene}
+          >
+            <MessageSquare className="w-3.5 h-3.5" /> Add Scene
+          </Button>
+        </div>
+      )}
       <div className="px-4 py-3 border-b border-border">
         <h2 className="text-xs font-bold tracking-wider text-foreground">ACTIONS</h2>
       </div>
