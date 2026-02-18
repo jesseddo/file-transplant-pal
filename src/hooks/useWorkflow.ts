@@ -208,11 +208,16 @@ export function useWorkflow() {
     });
   }, []);
 
+  const importSteps = useCallback((incoming: Step[]) => {
+    setSteps(incoming);
+    setSelectedStepId(null);
+  }, []);
+
   const selectedStep = steps.find((s) => s.id === selectedStepId) ?? null;
 
   return {
     steps, selectedStep, selectedStepId, selectedColumn,
     setSelectedStepId, setSelectedColumn,
-    addStep, addStepToColumn, removeStep, updateStep, moveStep,
+    addStep, addStepToColumn, removeStep, updateStep, moveStep, importSteps,
   };
 }

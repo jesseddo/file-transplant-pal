@@ -104,5 +104,13 @@ export function usePersonas() {
     return personas.find((p) => p.id === id) ?? null;
   }, [personas]);
 
-  return { personas, addPersona, updatePersona, removePersona, getPersona };
+  const importPersonas = useCallback((incoming: Persona[]) => {
+    setPersonas((prev) => {
+      const existingIds = new Set(prev.map((p) => p.id));
+      const newPersonas = incoming.filter((p) => !existingIds.has(p.id));
+      return [...prev, ...newPersonas];
+    });
+  }, []);
+
+  return { personas, addPersona, updatePersona, removePersona, getPersona, importPersonas };
 }
