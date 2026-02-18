@@ -6,6 +6,7 @@ import { ActionsPanel } from "@/components/scenario/ActionsPanel";
 import { InspectorPanel } from "@/components/scenario/InspectorPanel";
 import { WorkflowFlowView } from "@/components/scenario/WorkflowFlowView";
 import { ImportWizardModal } from "@/components/scenario/ImportWizardModal";
+import { AddSceneModal } from "@/components/scenario/AddSceneModal";
 import { useWorkflow } from "@/hooks/useWorkflow";
 import { usePersonas } from "@/hooks/usePersonas";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,6 +19,7 @@ const Index = () => {
   const { personas, importPersonas } = usePersonas();
   const [activeTab, setActiveTab] = useState("design");
   const [importOpen, setImportOpen] = useState(false);
+  const [addSceneOpen, setAddSceneOpen] = useState(false);
   const { toast } = useToast();
 
   const handleImport = useCallback((result: ImportResult) => {
@@ -28,6 +30,35 @@ const Index = () => {
       description: `${result.steps.length} steps, ${result.personas.length} personas loaded. Click any step to edit it.`,
     });
   }, [wf.importSteps, importPersonas, toast]);
+
+  const handleAddScene = useCallback((scene: {
+    title: string;
+    type: import("@/types/workflow").StepType;
+    column: import("@/types/workflow").ColumnId;
+    personaId?: string;
+    openingLine: string;
+    isBranching: boolean;
+  }) => {
+    const colSteps = wf.steps.filter((s) => s.column === scene.column);
+    const newId = wf.addStepToColumn(scene.type, scene.title, scene.column, colSteps.length);
+
+    const updates: Partial<import("@/types/workflow").Step> = {};
+    if (scene.personaId) updates.personaId = scene.personaId;
+    if (scene.isBranching) {
+      updates.flowBehavior = "decision";
+      updates.choices = [
+        { id: `${newId}_c1`, label: "Option A", actionId: "option_a", nextStepId: "" },
+        { id: `${newId}_c2`, label: "Option B", actionId: "option_b", nextStepId: "" },
+      ];
+    }
+    updates.tasks = [{
+      id: `${newId}_T1`,
+      description: scene.openingLine,
+      completionCriteria: "",
+      isHidden: false,
+    }];
+    wf.updateStep(newId, updates);
+  }, [wf]);
 
   const handleExport = useCallback(() => {
     const payload = buildExportPayload(wf.steps, personas);
@@ -68,6 +99,7 @@ const Index = () => {
               onRemoveStep={wf.removeStep}
               onMoveStep={wf.moveStep}
               onAddStepToColumn={wf.addStepToColumn}
+              onAddScene={() => setAddSceneOpen(true)}
             />
 
             {wf.selectedStep ? (
@@ -103,6 +135,7 @@ const Index = () => {
       </div>
 
       <ImportWizardModal open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} />
+      <AddSceneModal open={addSceneOpen} onOpenChange={setAddSceneOpen} personas={personas} onAddScene={handleAddScene} />
     </div>
   );
 };
