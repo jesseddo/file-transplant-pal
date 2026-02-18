@@ -10,6 +10,7 @@ import { useWorkflow } from "@/hooks/useWorkflow";
 import { usePersonas } from "@/hooks/usePersonas";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { buildExportPayload, downloadJson } from "@/lib/scenarioExporter";
+import { useToast } from "@/hooks/use-toast";
 import type { ImportResult } from "@/lib/excelImporter";
 
 const Index = () => {
@@ -17,11 +18,16 @@ const Index = () => {
   const { personas, importPersonas } = usePersonas();
   const [activeTab, setActiveTab] = useState("design");
   const [importOpen, setImportOpen] = useState(false);
+  const { toast } = useToast();
 
   const handleImport = useCallback((result: ImportResult) => {
     wf.importSteps(result.steps);
     importPersonas(result.personas);
-  }, [wf.importSteps, importPersonas]);
+    toast({
+      title: "Scenario imported",
+      description: `${result.steps.length} steps, ${result.personas.length} personas loaded. Click any step to edit it.`,
+    });
+  }, [wf.importSteps, importPersonas, toast]);
 
   const handleExport = useCallback(() => {
     const payload = buildExportPayload(wf.steps, personas);
