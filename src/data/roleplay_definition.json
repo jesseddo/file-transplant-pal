@@ -1,0 +1,319 @@
+{
+  "id": "rp_safeguards_pump_zero_energy_v3",
+  "title": "Safeguard Verification: Isobutane Pump Reinstated (Zero Energy Verification)",
+  "description": "",
+  "classification": "Downstream",
+  "learner_persona": "Operator (Outside Operator / Permit Approver-Verifier)",
+  "competencies": [
+    "Communication",
+    "Safeguard Verification"
+  ],
+  "objectives": [
+    "Define what constitutes a safeguard and the requirements for verification.",
+    "Recognize when it is necessary to physically verify safeguards.",
+    "Demonstrate awareness and appropriate utilization of start work checks to align expectations and estimate time needed to verify safeguards before commencing work.",
+    "Develop strategies and use techniques to improve communication skills and facilitate better communication from others throughout planning, preparation, and execution.",
+    "Facilitate concise pre-job briefings with 2-way dialog so all team members are informed about job scope, potential hazards, and key steps for successful execution."
+  ],
+  "sceneResources": [
+    {
+      "id": "PTW",
+      "title": "Permit to Work (PTW)",
+      "type": "Document",
+      "description": "Active work permit for P-101 pump recommissioning",
+      "url": "https://oe-ffl-chat.vercel.app/PTW.pdf"
+    },
+    {
+      "id": "SWC",
+      "title": "Start Work Check (SWC) Form",
+      "type": "Document",
+      "description": "Mandatory checklist for verifying safety requirements before starting work",
+      "url": "https://oe-ffl-chat.vercel.app/SWC.pdf"
+    },
+    {
+      "id": "LOTO",
+      "title": "Isolation List - P-101",
+      "type": "Document",
+      "description": "Complete list of all isolation points, locks, and tags for P-101 pump",
+      "url": "https://oe-ffl-chat.vercel.app/LOTO.pdf",
+      "hidden": true
+    }
+  ],
+  "learner_prompt": "You are the outside operator and permit approver-verifier. In each scene, state what you do and say, and why. Ask for missing information. Reference safeguards and procedures explicitly. Focus on verifying safeguards, confirming zero energy (including vent/bleeder verification), and using clear, closed-loop communication.",
+  "roleplay_nodes": [
+    {
+      "id": "A1_Remote_Approval_Request",
+      "title": "Remote Approval Request",
+      "description": "Control room requests PTW sign-off so the crew can begin work on isobutane pump recommissioning. Learner must resist premature approval and establish verification expectations.",
+      "role_play_persona": {
+        "name": "Mike",
+        "role": "Control Room Operator",
+        "personality": "Direct, concise, slightly blunt/sarcastic; prefers structured updates",
+        "objective": "Get a clear decision and understand what verification steps will occur before start.",
+        "initial_messages": [
+          "Mike in the control room. They’re asking for your permit sign-off so they can start the pump recommissioning. Can you approve it now, or are you holding it for verification?"
+        ]
+      },
+      "tasks": [
+        {
+          "id": "A1_T1_Initiate_Walkdown",
+          "description": "Initiate a walkdown with the crew lead/maintenance lead to verify the isolations and safeguards.",
+          "completion_criteria": "Learner initiates a walkdown to physically verify the isolations and safeguards.",
+          "is_hidden": true,
+          "next_node_id": "A2_Perform_Walkdown"
+        },
+        {
+          "id": "A1_T2_Premature_Permit_Signoff",
+          "description": "Learner approves/signs off on PTW immediately without additional verification.",
+          "completion_criteria": "Learner indicates they will sign/approve the PTW immediately or says 'approved' before verification steps.",
+          "is_hidden": false,
+          "next_node_id": "A1B_Premature_Permit_Signoff_Redirect"
+        }
+      ]
+    },
+    {
+      "id": "A1B_Premature_Permit_Signoff_Redirect",
+      "title": "Premature Permit Signoff Redirect",
+      "description": "Redirect the learner to the premature permit signoff redirect.",
+      "tasks": [
+        {
+          "id": "A1B_T1_Redirect_To_Premature_Permit_Signoff",
+          "description": "Redirect the learner to the premature permit signoff redirect.",
+          "completion_criteria": "Learner is redirected to the premature permit signoff redirect.",
+          "is_hidden": false,
+          "next_node_id": "A1_Remote_Approval_Request"
+        }
+      ]
+    },
+    {
+      "id": "A2_Perform_Walkdown",
+      "title": "Perform Walkdown",
+      "description": "Request a walkdown with the crew lead/maintenance lead to verify the isolations and safeguards.",
+      "role_play_persona": {
+        "name": "Tom",
+        "role": "Maintenance / Crew Lead",
+        "personality": "Practical, field-focused, confident; may be slightly defensive",
+        "roleplay_objective": "Represent isolations as implemented; support verification; keep the job moving safely.",
+        "initial_messages": [
+          "Tom with maintenance. We installed the isolations per the plan. Are we ready to start?"
+        ]
+      },
+      "given_resources": [
+        "SWC"
+      ],
+      "tasks": [
+        {
+          "id": "A2_T1_Verify_Isolations",
+          "description": "Verify the isolations and safeguards.",
+          "completion_criteria": "Learner verifies the isolations and safeguards.",
+          "is_hidden": true,
+          "next_node_id": "A3_Perform_SWC_Dialogue"
+        },
+        {
+          "id": "A2_T2_Verify_without_list",
+          "description": "Learner verifies the isolations and safeguards without the isolation list.",
+          "completion_criteria": "Learner verifies the isolations and safeguards without the isolation list.",
+          "is_hidden": true,
+          "next_node_id": "O2_Incident_Flange_Break"
+        }
+      ]
+    },
+    {
+      "id": "A3_Perform_SWC_Dialogue",
+      "title": "Walkthrough and SWC Dialogue",
+      "description": "Walk through the isolations and safeguards and discuss the start work check.",
+      "role_play_persona": {
+        "name": "Tom",
+        "role": "Maintenance / Crew Lead",
+        "personality": "Practical, concise; supports walk-through when prompted",
+        "roleplay_objective": "Walk through the isolations and safeguards and discuss the start work check.",
+        "initial_messages": [
+          "Ok, I'll walk through the isolations and safeguards so you can physically verify them.",
+          "We've got Breaker VE03A OFF—LOTO lock on, tag on with name/date/permit.",
+          "Walking the hard isolations first: inlet from V400 closed—locked/tagged. Pump discharge closed—locked/tagged. Outlet to caustic drum closed—locked/tagged. Vent closed—locked/tagged. Bypass closed—locked/tagged. Return to V400 closed—locked/tagged."
+        ]
+      },
+      "given_resources": [
+        "SWC"
+      ],
+      "tasks": [
+        {
+          "id": "A3_T1_Request_Zero_Energy_Verification",
+          "description": "Ask for zero energy verification.",
+          "completion_criteria": "Learner asks for zero energy verification.",
+          "is_hidden": true,
+          "next_node_id": "A4_Zero_Energy_Verification"
+        }
+      ]
+    },
+    {
+      "id": "A4_Zero_Energy_Verification",
+      "title": "Zero Energy Verification (Linked to SWC)",
+      "description": "Explicit zero-energy verification section linked to SWC. Most steps appear complete, but the bleeder/vent was never opened. Crew rationalizations may include 'gauge shows zero' or 'control room said zero.' Learner must decide whether to stop or sign off.",
+      "given_resources": [
+        "SWC"
+      ],
+      "hidden_resources": [
+        "LOTO"
+      ],
+      "role_play_persona": {
+        "name": "Tom",
+        "role": "Maintenance / Crew Lead",
+        "personality": "Confident, practical; may lean on 'normal practice' shortcuts unless challenged",
+        "objective": "Get to start work while complying with verification expectations.",
+        "initial_messages": [
+          "We’re ready for zero-energy verification. Ask what you need.",
+          "Crew note: gauge is reading zero. Control room said it’s at zero too."
+        ]
+      },
+      "tasks": [
+        {
+          "id": "A4_T1_Probe_How_Zero_Energy_Was_Proven",
+          "description": "Ask the crew to show exactly how they proved zero energy (not just gauge reading or control room statement). Require closed-loop confirmation.",
+          "completion_criteria": "Learner asks 'show me how you verified/proved zero energy' and challenges reliance on gauge/control-room-only confirmation.",
+          "is_hidden": false
+        },
+        {
+          "id": "A4_T2_Catch_Bleeder_Gap_Stop_And_Correct",
+          "description": "Catch that bleeder/vent was not opened; verify zero energy before proceeding.",
+          "completion_criteria": "Learner verifies zero energy before proceeding.",
+          "is_hidden": false,
+          "next_node_id": "O1_Safe_Outcome_Recommission"
+        },
+        {
+          "id": "A4_T3_Approve_Without_Bleeder_Vent_Verification",
+          "description": "Learner approves/signs off on start work without requiring the bleeder/vent to be opened/checked as part of proving zero energy.",
+          "completion_criteria": "Learner approves/signs off on start work without requiring the bleeder/vent to be opened/checked as part of proving zero energy.",
+          "is_hidden": false,
+          "next_node_id": "O2_Incident_Flange_Break"
+        }
+      ]
+    },
+    {
+      "id": "O1_Safe_Outcome_Recommission",
+      "title": "Outcome: Safe Proceed (Bleeder/Vent Caught and Corrected)",
+      "description": "Proceed with work only after zero energy is proven (including bleeder/vent verification) and start work expectations are aligned.",
+      "tasks": [
+        {
+          "id": "O1_T1_Proceed_After_Verified_Zero_Energy",
+          "description": "Proceed with work only after zero energy is proven (including bleeder/vent verification) and start work expectations are aligned.",
+          "completion_criteria": "Learner states conditions met and authorizes proceed with closed-loop confirmation.",
+          "is_hidden": false,
+          "next_node_id": "D1_Debrief_Safe"
+        }
+      ]
+    },
+    {
+      "id": "O2_Incident_Flange_Break",
+      "title": "Outcome: Incident (Gap Missed, Flange Break)",
+      "description": "Work proceeds to flange break. Residual pressure/gas releases; local monitors alarm; workers evacuate. One crew member becomes ill and is transported offsite. Emergency response protocol initiated; no fatality.",
+      "role_play_persona": {
+        "name": "Tom",
+        "role": "Maintenance / Crew Lead",
+        "personality": "Urgent, direct",
+        "objective": "Get the crew safe and coordinate immediate actions with the verifier and control room.",
+        "initial_messages": [
+          "Stop—stop! We’ve got a release! Back out—get upwind!",
+          "One of the guys is dizzy—getting him to fresh air. We need medical response now."
+        ]
+      },
+      "tasks": [
+        {
+          "id": "O2_T1_Immediate_Control_And_Accountability",
+          "description": "Confirm evacuation/accountability and initiate immediate controls aligned to site protocol (high level; not a quiz).",
+          "completion_criteria": "Learner confirms evacuation/accountability, communicates immediate controls/coordination needs, and uses closed-loop communication.",
+          "is_hidden": false,
+          "next_node_id": "D2_Debrief_Incident"
+        }
+      ]
+    },
+    {
+      "id": "O3_Valve_Blowby",
+      "title": "Outcome: Incident (Valve Blowby)",
+      "description": "Work proceeds to valve blowby. Residual pressure/gas releases; local monitors alarm; workers evacuate. One crew member becomes ill and is transported offsite. Emergency response protocol initiated; no fatality.",
+      "tasks": [
+        {
+          "id": "O3_T1_Valve_Blowby",
+          "description": "Valve blowby. Residual pressure/gas releases; local monitors alarm; workers evacuate.",
+          "completion_criteria": "Learner confirms valve blowby, communicates immediate controls/coordination needs.",
+          "is_hidden": false,
+          "next_node_id": "D2_Debrief_Incident"
+        }
+      ]
+    },
+    {
+      "id": "D1_Debrief_Safe",
+      "title": "Debrief (Safe Outcome) — Lessons Learned",
+      "is_debrief": true,
+      "description": "Coach guides reflective debrief focusing on what went well: verification discipline, critical safeguard focus, and communication. Explicitly use 'debrief' and 'lessons learned' language.",
+      "role_play_persona": {
+        "name": "Coach",
+        "role": "AI Coach (Out of Role-play)",
+        "personality": "Reflective, guiding",
+        "objective": "Help learner articulate lessons learned from a successful verification and safe outcome.",
+        "initial_messages": [
+          "Debrief. You prevented an incident by requiring proof of zero energy—not just a gauge reading.",
+          "Lessons learned: what did you do well, and how will you apply this verification approach on the next job?"
+        ]
+      },
+      "tasks": [
+        {
+          "id": "D1_T1_Articulate_Lessons_Learned",
+          "description": "Learner articulates lessons learned (verification discipline, critical safeguards, closed-loop communication).",
+          "completion_criteria": "Learner states at least 2 concrete lessons learned tied to safeguards verification and communication behaviors.",
+          "is_hidden": false,
+          "next_node_id": "END_NODE"
+        }
+      ]
+    },
+    {
+      "id": "D2_Debrief_Incident",
+      "title": "Debrief (Incident Outcome) — Lessons Learned",
+      "is_debrief": true,
+      "description": "Coach guides reflective debrief emphasizing the impact of not verifying zero energy (bleeder/vent not opened) and how safeguard verification prevents harm. High-level summary of response; not a detailed emergency response quiz.",
+      "role_play_persona": {
+        "name": "Coach",
+        "role": "AI Coach (Out of Role-play)",
+        "personality": "Reflective, guiding, direct about cause-and-effect without shaming",
+        "objective": "Help learner connect verification lapse to outcome and articulate prevention-focused lessons learned.",
+        "initial_messages": [
+          "Debrief. The critical miss was approving start work without proving zero energy—specifically, the bleeder/vent was never opened.",
+          "Lessons learned: what verification dialogue should have happened, and what will you do differently next time before you sign off?"
+        ]
+      },
+      "tasks": [
+        {
+          "id": "D2_T1_Articulate_Cause_And_Prevention",
+          "description": "Learner names the missed verification step and prevention behaviors (evidence-based SWC + zero energy proof, closed-loop comms, stop-work authority).",
+          "completion_criteria": "Learner identifies the missed bleeder/vent verification and states at least 2 concrete prevention behaviors.",
+          "is_hidden": false,
+          "next_node_id": "END_NODE"
+        }
+      ]
+    }
+  ],
+  "evaluation_criteria": [
+    {
+      "id": "E1_Communication",
+      "name": "Communication",
+      "description": "Effective communication with control room and crew using three-way (call-out, repeat-back, confirm) communication and clarifying questions.",
+      "criteria": [
+        "Learner asks clarifying questions instead of jumping to conclusions when a procedure isn’t followed.",
+        "Learner uses three-way communication (call-out, repeat-back, confirm).",
+        "Learner confirms crew awareness of scope and critical steps before authorizing start."
+      ]
+    },
+    {
+      "id": "E2_Safeguard_Verification",
+      "name": "Safeguard Verification",
+      "description": "Learner verifies critical safeguards using evidence-based dialogue and uses stop-work authority when safeguards cannot be verified.",
+      "criteria": [
+        "Learner verifies isolations and safeguards using the isolation list.",
+        "Learner verifies SWC through dialogue focused on top critical safeguards (not checkbox acceptance).",
+        "Learner challenges reliance on gauge/control-room-only confirmation where proof is required.",
+        "Learner uses stop-work authority when zero energy cannot be proven.",
+        "Learner reinforces time/expectation to perform verification as designed."
+      ]
+    }
+  ]
+}
