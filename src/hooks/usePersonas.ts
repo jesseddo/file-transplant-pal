@@ -82,8 +82,8 @@ const INITIAL_PERSONAS: Persona[] = [
 
 let nextPersonaId = 100;
 
-export function usePersonas() {
-  const [personas, setPersonas] = useState<Persona[]>(INITIAL_PERSONAS);
+export function usePersonas(initialPersonas?: Persona[]) {
+  const [personas, setPersonas] = useState<Persona[]>(initialPersonas ?? INITIAL_PERSONAS);
 
   const addPersona = useCallback((persona: Omit<Persona, "id">) => {
     const id = `persona_${nextPersonaId++}`;
@@ -112,5 +112,5 @@ export function usePersonas() {
     });
   }, []);
 
-  return { personas, addPersona, updatePersona, removePersona, getPersona, importPersonas };
+  return { personas, setPersonas, addPersona, updatePersona, removePersona, getPersona, importPersonas };
 }

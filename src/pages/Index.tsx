@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { AppSidebar } from "@/components/scenario/AppSidebar";
 import { ScenarioHeader } from "@/components/scenario/ScenarioHeader";
 import { WorkflowCanvas } from "@/components/scenario/WorkflowCanvas";
@@ -9,25 +10,43 @@ import { ImportWizardModal } from "@/components/scenario/ImportWizardModal";
 import { AddSceneModal } from "@/components/scenario/AddSceneModal";
 import { useWorkflow } from "@/hooks/useWorkflow";
 import { usePersonas } from "@/hooks/usePersonas";
+import { useScenarios } from "@/hooks/useScenarios";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { buildExportPayload, downloadJson } from "@/lib/scenarioExporter";
 import { useToast } from "@/hooks/use-toast";
 import type { ImportResult } from "@/lib/excelImporter";
+import type { Step } from "@/types/workflow";
 
-const Index = () => {
-  const wf = useWorkflow();
-  const { personas, importPersonas } = usePersonas();
+const ScenarioEditor = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { getScenario, updateScenario } = useScenarios();
+  const scenario = id ? getScenario(id) : null;
+
+  const wf = useWorkflow(scenario?.steps);
+  const { personas, importPersonas, setPersonas } = usePersonas(scenario?.personas);
   const [activeTab, setActiveTab] = useState("design");
   const [importOpen, setImportOpen] = useState(false);
   const [addSceneOpen, setAddSceneOpen] = useState(false);
   const { toast } = useToast();
+
+  // Sync changes back to scenario storage
+  useEffect(() => {
+    if (!id) return;
+    updateScenario(id, { steps: wf.steps, personas });
+  }, [wf.steps, personas, id, updateScenario]);
+
+  // Redirect if scenario not found
+  useEffect(() => {
+    if (id && !scenario) navigate("/", { replace: true });
+  }, [id, scenario, navigate]);
 
   const handleImport = useCallback((result: ImportResult) => {
     wf.importSteps(result.steps);
     importPersonas(result.personas);
     toast({
       title: "Scenario imported",
-      description: `${result.steps.length} steps, ${result.personas.length} personas loaded. Click any step to edit it.`,
+      description: `${result.steps.length} steps, ${result.personas.length} personas loaded.`,
     });
   }, [wf.importSteps, importPersonas, toast]);
 
@@ -42,7 +61,7 @@ const Index = () => {
     const colSteps = wf.steps.filter((s) => s.column === scene.column);
     const newId = wf.addStepToColumn(scene.type, scene.title, scene.column, colSteps.length);
 
-    const updates: Partial<import("@/types/workflow").Step> = {};
+    const updates: Partial<Step> = {};
     if (scene.personaId) updates.personaId = scene.personaId;
     if (scene.isBranching) {
       updates.flowBehavior = "decision";
@@ -65,12 +84,18 @@ const Index = () => {
     downloadJson(payload);
   }, [wf.steps, personas]);
 
+  if (!scenario) return null;
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
       <AppSidebar personas={personas} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <ScenarioHeader onExportJson={handleExport} onImportClick={() => setImportOpen(true)} />
+        <ScenarioHeader
+          scenario={scenario}
+          onExportJson={handleExport}
+          onImportClick={() => setImportOpen(true)}
+        />
 
         <div className="border-b border-border bg-card px-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -139,4 +164,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default ScenarioEditor;
