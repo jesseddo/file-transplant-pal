@@ -176,7 +176,7 @@ export function useWorkflow() {
     setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, ...updates } : s)));
   }, []);
 
-  const addStepToColumn = useCallback((type: StepType, title: string, column: ColumnId, index: number) => {
+  const addStepToColumn = useCallback((type: StepType, title: string, column: ColumnId, index: number): string => {
     const id = `s${nextId++}`;
     setSteps((prev) => {
       const colSteps = prev.filter((s) => s.column === column).sort((a, b) => a.order - b.order);
@@ -188,6 +188,7 @@ export function useWorkflow() {
       return [...otherSteps, ...colSteps];
     });
     setSelectedStepId(id);
+    return id;
   }, []);
 
   const moveStep = useCallback((stepId: string, toColumn: ColumnId, toIndex: number) => {
