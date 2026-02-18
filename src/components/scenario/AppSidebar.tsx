@@ -80,12 +80,6 @@ export function AppSidebar({ personas = [], onImportClick }: AppSidebarProps) {
           </div>
         ))}
 
-        {/* Import button */}
-        <div className="px-3 mb-4">
-          <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={onImportClick}>
-            <FileSpreadsheet className="w-3.5 h-3.5" /> Import Scenario
-          </Button>
-        </div>
 
         {/* Persona Library */}
         {uniquePersonas.length > 0 && (
