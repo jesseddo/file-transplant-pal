@@ -1,6 +1,8 @@
-import { useState, DragEvent, useCallback } from "react";
-import { Step, ColumnId, StepType } from "@/types/workflow";
+import { useState, DragEvent, useCallback, useRef, useEffect } from "react";
+import { Step, ColumnId, StepType, ACTION_TILES, ActionCategory } from "@/types/workflow";
 import { StepCard } from "./StepCard";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface CanvasProps {
   steps: Step[];
@@ -19,6 +21,55 @@ const COLUMNS: { id: ColumnId; label: string; headerClass: string; bgClass: stri
   { id: "review", label: "REVIEW", headerClass: "bg-[hsl(var(--column-header-review))]", bgClass: "bg-[hsl(var(--column-review))]" },
 ];
 
+const CATEGORIES: ActionCategory[] = ["Media", "Simulation", "Coaching", "Resources & Compliance", "Behavioral"];
+
+/* ── Inline step-type picker ── */
+function AddStepPicker({ column, onAdd, onClose }: {
+  column: ColumnId;
+  onAdd: (type: StepType, label: string, column: ColumnId, index: number) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute bottom-12 left-1/2 -translate-x-1/2 w-56 rounded-lg border border-border bg-card shadow-lg z-50 p-2 space-y-1.5"
+    >
+      <p className="text-[10px] font-semibold text-muted-foreground tracking-wide uppercase px-1">Add step</p>
+      {CATEGORIES.map((cat) => {
+        const tiles = ACTION_TILES.filter((t) => t.category === cat);
+        if (tiles.length === 0) return null;
+        return (
+          <div key={cat}>
+            <p className="text-[9px] font-medium text-muted-foreground px-1 mb-0.5">{cat}</p>
+            {tiles.map((tile) => (
+              <button
+                key={tile.type}
+                className="w-full text-left px-2 py-1.5 text-xs rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                onClick={() => {
+                  onAdd(tile.type, tile.label, column, Infinity);
+                  onClose();
+                }}
+              >
+                {tile.label}
+              </button>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function WorkflowCanvas({
   steps,
   selectedStepId,
@@ -30,6 +81,7 @@ export function WorkflowCanvas({
   onAddStepToColumn,
 }: CanvasProps) {
   const [dropTarget, setDropTarget] = useState<{ col: ColumnId; index: number } | null>(null);
+  const [pickerColumn, setPickerColumn] = useState<ColumnId | null>(null);
 
   const stepsByColumn = (col: ColumnId) =>
     steps.filter((s) => s.column === col).sort((a, b) => a.order - b.order);
@@ -87,7 +139,7 @@ export function WorkflowCanvas({
           return (
             <div
               key={col.id}
-              className={`w-[280px] shrink-0 rounded-lg border-2 transition-colors ${
+              className={`w-[280px] shrink-0 rounded-lg border-2 transition-colors relative ${
                 isDropHere
                   ? "border-primary/50 bg-primary/5"
                   : isActive
@@ -105,7 +157,7 @@ export function WorkflowCanvas({
                 </h3>
               </div>
               <div
-                className="p-3 space-y-2 min-h-[200px]"
+                className="p-3 space-y-2 min-h-[200px] pb-14"
                 onDragOver={(e) => handleDragOver(e, col.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, col.id)}
@@ -132,6 +184,32 @@ export function WorkflowCanvas({
                   </p>
                 )}
               </div>
+
+              {/* Add Step button */}
+              <div className="absolute bottom-2 left-0 right-0 flex justify-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPickerColumn(pickerColumn === col.id ? null : col.id);
+                  }}
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Step
+                </Button>
+              </div>
+
+              {pickerColumn === col.id && (
+                <AddStepPicker
+                  column={col.id}
+                  onAdd={(type, label, column, index) => {
+                    onAddStepToColumn(type, label, column, index);
+                    onSelectColumn(column);
+                  }}
+                  onClose={() => setPickerColumn(null)}
+                />
+              )}
             </div>
           );
         })}
