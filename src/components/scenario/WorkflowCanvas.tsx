@@ -1,7 +1,7 @@
 import { useState, DragEvent, useCallback, useRef, useEffect } from "react";
 import { Step, ColumnId, StepType, ACTION_TILES, ActionCategory } from "@/types/workflow";
 import { StepCard } from "./StepCard";
-import { Plus, MessageSquare } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface CanvasProps {
@@ -13,7 +13,6 @@ interface CanvasProps {
   onRemoveStep: (id: string) => void;
   onMoveStep: (stepId: string, toColumn: ColumnId, toIndex: number) => void;
   onAddStepToColumn: (type: StepType, label: string, column: ColumnId, index: number) => void;
-  onAddScene?: () => void;
 }
 
 const COLUMNS: { id: ColumnId; label: string; headerClass: string; bgClass: string }[] = [
@@ -80,7 +79,6 @@ export function WorkflowCanvas({
   onRemoveStep,
   onMoveStep,
   onAddStepToColumn,
-  onAddScene,
 }: CanvasProps) {
   const [dropTarget, setDropTarget] = useState<{ col: ColumnId; index: number } | null>(null);
   const [pickerColumn, setPickerColumn] = useState<ColumnId | null>(null);
@@ -133,18 +131,6 @@ export function WorkflowCanvas({
 
   return (
     <div className="flex-1 bg-canvas p-4 overflow-auto relative">
-      {onAddScene && (
-        <div className="mb-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs gap-1.5"
-            onClick={onAddScene}
-          >
-            <MessageSquare className="w-3.5 h-3.5" /> Add Scene
-          </Button>
-        </div>
-      )}
       <div className="flex gap-3 relative z-20 min-h-[500px]">
         {COLUMNS.map((col) => {
           const colSteps = stepsByColumn(col.id);
