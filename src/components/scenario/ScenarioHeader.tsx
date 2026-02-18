@@ -1,7 +1,12 @@
-import { ArrowLeft, Clock, Shield, Calendar, Users } from "lucide-react";
+import { ArrowLeft, Clock, Shield, Calendar, Users, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
-export function ScenarioHeader() {
+interface ScenarioHeaderProps {
+  onExportJson?: () => void;
+}
+
+export function ScenarioHeader({ onExportJson }: ScenarioHeaderProps) {
   return (
     <div className="border-b border-border bg-card px-6 py-4">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
@@ -21,6 +26,11 @@ export function ScenarioHeader() {
         <span className="flex items-center gap-1"><Shield className="w-3.5 h-3.5" /> Safety Critical</span>
         <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> Updated Feb 18, 2026</span>
         <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> 4 NPC Personas</span>
+        {onExportJson && (
+          <Button variant="outline" size="sm" className="ml-auto h-6 text-xs gap-1" onClick={onExportJson}>
+            <Download className="w-3 h-3" /> Export JSON
+          </Button>
+        )}
       </div>
     </div>
   );

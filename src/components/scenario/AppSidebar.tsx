@@ -1,9 +1,10 @@
 import {
   LayoutDashboard, MonitorPlay, Library, FolderOpen,
   Workflow, TestTube, Component, MapPin,
-  Settings, Users, BarChart3, MessageCircle, User
+  Settings, Users, BarChart3, MessageCircle, User, FileSpreadsheet
 } from "lucide-react";
 import { Persona } from "@/types/workflow";
+import { Button } from "@/components/ui/button";
 
 const NAV_SECTIONS = [
   {
@@ -38,9 +39,10 @@ const NAV_SECTIONS = [
 
 interface AppSidebarProps {
   personas?: Persona[];
+  onImportClick?: () => void;
 }
 
-export function AppSidebar({ personas = [] }: AppSidebarProps) {
+export function AppSidebar({ personas = [], onImportClick }: AppSidebarProps) {
   // Deduplicate by name for the library display
   const uniquePersonas = personas.reduce<Persona[]>((acc, p) => {
     if (!acc.find(x => x.name === p.name)) acc.push(p);
@@ -77,6 +79,13 @@ export function AppSidebar({ personas = [] }: AppSidebarProps) {
             ))}
           </div>
         ))}
+
+        {/* Import button */}
+        <div className="px-3 mb-4">
+          <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={onImportClick}>
+            <FileSpreadsheet className="w-3.5 h-3.5" /> Import Scenario
+          </Button>
+        </div>
 
         {/* Persona Library */}
         {uniquePersonas.length > 0 && (
