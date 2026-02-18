@@ -26,6 +26,7 @@ import {
   REQUIRED_FIELDS,
   ImportResult,
 } from "@/lib/excelImporter";
+import { importJson } from "@/lib/jsonImporter";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ImportWizardModalProps {
@@ -35,9 +36,11 @@ interface ImportWizardModalProps {
 }
 
 type WizardStep = "upload" | "mapping" | "preview";
+type FileFormat = "excel" | "json";
 
 export function ImportWizardModal({ open, onOpenChange, onImport }: ImportWizardModalProps) {
   const [wizardStep, setWizardStep] = useState<WizardStep>("upload");
+  const [fileFormat, setFileFormat] = useState<FileFormat>("excel");
   const [fileName, setFileName] = useState("");
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<Record<string, string>[]>([]);
@@ -46,6 +49,7 @@ export function ImportWizardModal({ open, onOpenChange, onImport }: ImportWizard
 
   const reset = useCallback(() => {
     setWizardStep("upload");
+    setFileFormat("excel");
     setFileName("");
     setHeaders([]);
     setRows([]);
@@ -54,13 +58,31 @@ export function ImportWizardModal({ open, onOpenChange, onImport }: ImportWizard
   }, []);
 
   const handleFileChange = useCallback(async (file: File) => {
-    const data = await file.arrayBuffer();
-    const parsed = parseWorkbook(data);
     setFileName(file.name);
-    setHeaders(parsed.headers);
-    setRows(parsed.rows);
-    setMapping(autoDetectMapping(parsed.headers));
-    setWizardStep("mapping");
+    const isJson = file.name.endsWith(".json");
+
+    if (isJson) {
+      const text = await file.text();
+      try {
+        const json = JSON.parse(text);
+        const res = importJson(json);
+        setFileFormat("json");
+        setResult(res);
+        setWizardStep("preview");
+      } catch {
+        setResult({ steps: [], personas: [], resources: [], warnings: ["Failed to parse JSON file"] });
+        setFileFormat("json");
+        setWizardStep("preview");
+      }
+    } else {
+      const data = await file.arrayBuffer();
+      const parsed = parseWorkbook(data);
+      setFileFormat("excel");
+      setHeaders(parsed.headers);
+      setRows(parsed.rows);
+      setMapping(autoDetectMapping(parsed.headers));
+      setWizardStep("mapping");
+    }
   }, []);
 
   const handleDrop = useCallback(
@@ -115,7 +137,9 @@ export function ImportWizardModal({ open, onOpenChange, onImport }: ImportWizard
             <FileSpreadsheet className="w-5 h-5 text-primary" />
             Import Scenario
             <Badge variant="outline" className="ml-2 text-xs font-normal">
-              Step {wizardStep === "upload" ? 1 : wizardStep === "mapping" ? 2 : 3} of 3
+              {fileFormat === "json"
+                ? `Step ${wizardStep === "upload" ? 1 : 2} of 2`
+                : `Step ${wizardStep === "upload" ? 1 : wizardStep === "mapping" ? 2 : 3} of 3`}
             </Badge>
           </DialogTitle>
         </DialogHeader>
@@ -130,13 +154,13 @@ export function ImportWizardModal({ open, onOpenChange, onImport }: ImportWizard
           >
             <Upload className="w-10 h-10 text-muted-foreground" />
             <div className="text-center">
-              <p className="text-sm font-medium text-foreground">Drop your Excel file here</p>
-              <p className="text-xs text-muted-foreground mt-1">or click to browse · .xlsx / .csv</p>
+              <p className="text-sm font-medium text-foreground">Drop your file here</p>
+              <p className="text-xs text-muted-foreground mt-1">or click to browse · .xlsx / .csv / .json</p>
             </div>
             <input
               id="import-file-input"
               type="file"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx,.xls,.csv,.json"
               className="hidden"
               onChange={handleInputChange}
             />
@@ -229,7 +253,9 @@ export function ImportWizardModal({ open, onOpenChange, onImport }: ImportWizard
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setWizardStep(wizardStep === "preview" ? "mapping" : "upload")}
+              onClick={() => setWizardStep(
+                wizardStep === "preview" && fileFormat === "excel" ? "mapping" : "upload"
+              )}
             >
               <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back
             </Button>
