@@ -16,6 +16,41 @@ export type FlowBehavior = "linear" | "decision";
 
 export type ActionCategory = "Media" | "Simulation" | "Coaching" | "Resources & Compliance" | "Behavioral";
 
+// ── Persona ──
+
+export interface Persona {
+  id: string;
+  name: string;
+  role: string;
+  personality: string;
+  objective: string;
+  initialMessages: string[];
+  avatarUrl?: string;
+}
+
+// ── Simulation Task ──
+
+export interface SimTask {
+  id: string;
+  description: string;
+  completionCriteria: string;
+  isHidden: boolean;
+  nextNodeId?: string; // step id, "__end__", or undefined (no routing)
+}
+
+// ── Scene Resource ──
+
+export interface SceneResource {
+  id: string;
+  title: string;
+  type: "Document" | "Image" | "Video" | "Audio";
+  description: string;
+  url?: string;
+  hidden?: boolean;
+}
+
+// ── Action Tile (palette) ──
+
 export interface ActionTile {
   type: StepType;
   label: string;
@@ -27,7 +62,7 @@ export interface BranchChoice {
   id: string;
   label: string;
   actionId: string;
-  nextStepId: string; // step id or "__end__" for end scenario
+  nextStepId: string;
 }
 
 export interface RoutingRule {
@@ -41,11 +76,17 @@ export interface Step {
   type: StepType;
   column: ColumnId;
   order: number;
-  flowBehavior?: FlowBehavior; // defaults to "linear"
-  choices?: BranchChoice[]; // only when flowBehavior === "decision"
-  routingRules?: RoutingRule[]; // ordered routing rules for decision steps
-  fallbackNextStepId?: string; // destination for uncovered choices
+  flowBehavior?: FlowBehavior;
+  choices?: BranchChoice[];
+  routingRules?: RoutingRule[];
+  fallbackNextStepId?: string;
   ui?: { position: { x: number; y: number } };
+
+  // Chat-simulation fields
+  personaId?: string;
+  tasks?: SimTask[];
+  givenResourceIds?: string[];
+  hiddenResourceIds?: string[];
 }
 
 export const ACTION_TILES: ActionTile[] = [

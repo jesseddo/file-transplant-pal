@@ -1,8 +1,9 @@
 import {
   LayoutDashboard, MonitorPlay, Library, FolderOpen,
   Workflow, TestTube, Component, MapPin,
-  Settings, Users, BarChart3, MessageCircle
+  Settings, Users, BarChart3, MessageCircle, User
 } from "lucide-react";
+import { Persona } from "@/types/workflow";
 
 const NAV_SECTIONS = [
   {
@@ -35,7 +36,17 @@ const NAV_SECTIONS = [
   },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  personas?: Persona[];
+}
+
+export function AppSidebar({ personas = [] }: AppSidebarProps) {
+  // Deduplicate by name for the library display
+  const uniquePersonas = personas.reduce<Persona[]>((acc, p) => {
+    if (!acc.find(x => x.name === p.name)) acc.push(p);
+    return acc;
+  }, []);
+
   return (
     <aside className="w-56 shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col h-screen">
       <div className="h-14 flex items-center gap-2 px-4 border-b border-sidebar-border">
@@ -66,6 +77,29 @@ export function AppSidebar() {
             ))}
           </div>
         ))}
+
+        {/* Persona Library */}
+        {uniquePersonas.length > 0 && (
+          <div className="mb-4">
+            <p className="px-4 mb-1 text-[10px] font-semibold tracking-wider text-sidebar-muted">
+              PERSONAS
+            </p>
+            {uniquePersonas.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center gap-2.5 px-4 py-1.5 text-sm text-sidebar-foreground"
+              >
+                <div className="w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                  <User className="w-3 h-3 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-foreground truncate">{p.name}</p>
+                  <p className="text-[10px] text-sidebar-muted truncate">{p.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </nav>
 
       <div className="px-4 py-3 border-t border-sidebar-border">

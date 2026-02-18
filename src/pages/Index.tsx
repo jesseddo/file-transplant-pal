@@ -6,15 +6,17 @@ import { ActionsPanel } from "@/components/scenario/ActionsPanel";
 import { InspectorPanel } from "@/components/scenario/InspectorPanel";
 import { WorkflowFlowView } from "@/components/scenario/WorkflowFlowView";
 import { useWorkflow } from "@/hooks/useWorkflow";
+import { usePersonas } from "@/hooks/usePersonas";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
   const wf = useWorkflow();
+  const { personas } = usePersonas();
   const [activeTab, setActiveTab] = useState("design");
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      <AppSidebar />
+      <AppSidebar personas={personas} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <ScenarioHeader />
@@ -52,6 +54,7 @@ const Index = () => {
               <InspectorPanel
                 step={wf.selectedStep}
                 allSteps={wf.steps}
+                personas={personas}
                 onClose={() => wf.setSelectedStepId(null)}
                 onUpdate={wf.updateStep}
               />
