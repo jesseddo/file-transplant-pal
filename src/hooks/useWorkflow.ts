@@ -154,8 +154,8 @@ const INITIAL_STEPS: Step[] = [
 
 let nextId = 100;
 
-export function useWorkflow() {
-  const [steps, setSteps] = useState<Step[]>(INITIAL_STEPS);
+export function useWorkflow(initialSteps?: Step[]) {
+  const [steps, setSteps] = useState<Step[]>(initialSteps ?? INITIAL_STEPS);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [selectedColumn, setSelectedColumn] = useState<ColumnId>("intro");
 

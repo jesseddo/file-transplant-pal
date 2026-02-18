@@ -136,6 +136,29 @@ export const CATEGORY_BADGE_CLASS: Record<ActionCategory, string> = {
   Behavioral: "bg-[hsl(var(--badge-behavioral))] text-[hsl(var(--badge-behavioral-fg))]",
 };
 
+export type CriticalityLevel = "safety-critical" | "operational" | "training";
+
+export interface Scenario {
+  id: string;
+  name: string;
+  description: string;
+  targetRole: string;
+  estimatedDuration: string;
+  criticality: CriticalityLevel;
+  status: "draft" | "published";
+  createdAt: string;
+  updatedAt: string;
+  steps: Step[];
+  personas: Persona[];
+  resources: SceneResource[];
+}
+
+export const CRITICALITY_LABELS: Record<CriticalityLevel, string> = {
+  "safety-critical": "Safety Critical",
+  operational: "Operational",
+  training: "Training",
+};
+
 export function isDecisionCheckpointValid(step: Step): boolean {
   if (step.flowBehavior !== "decision") return true;
   const choices = step.choices ?? [];
