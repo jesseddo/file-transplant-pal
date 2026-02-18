@@ -30,10 +30,10 @@ const Index = () => {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      <AppSidebar personas={personas} onImportClick={() => setImportOpen(true)} />
+      <AppSidebar personas={personas} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <ScenarioHeader onExportJson={handleExport} />
+        <ScenarioHeader onExportJson={handleExport} onImportClick={() => setImportOpen(true)} />
 
         <div className="border-b border-border bg-card px-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>

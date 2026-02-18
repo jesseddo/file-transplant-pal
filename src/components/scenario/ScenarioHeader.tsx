@@ -1,12 +1,13 @@
-import { ArrowLeft, Clock, Shield, Calendar, Users, Download } from "lucide-react";
+import { ArrowLeft, Clock, Shield, Calendar, Users, Download, FileSpreadsheet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 interface ScenarioHeaderProps {
   onExportJson?: () => void;
+  onImportClick?: () => void;
 }
 
-export function ScenarioHeader({ onExportJson }: ScenarioHeaderProps) {
+export function ScenarioHeader({ onExportJson, onImportClick }: ScenarioHeaderProps) {
   return (
     <div className="border-b border-border bg-card px-6 py-4">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
@@ -26,11 +27,18 @@ export function ScenarioHeader({ onExportJson }: ScenarioHeaderProps) {
         <span className="flex items-center gap-1"><Shield className="w-3.5 h-3.5" /> Safety Critical</span>
         <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> Updated Feb 18, 2026</span>
         <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> 4 NPC Personas</span>
-        {onExportJson && (
-          <Button variant="outline" size="sm" className="ml-auto h-6 text-xs gap-1" onClick={onExportJson}>
-            <Download className="w-3 h-3" /> Export JSON
-          </Button>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {onImportClick && (
+            <Button variant="outline" size="sm" className="h-6 text-xs gap-1" onClick={onImportClick}>
+              <FileSpreadsheet className="w-3 h-3" /> Import
+            </Button>
+          )}
+          {onExportJson && (
+            <Button variant="outline" size="sm" className="h-6 text-xs gap-1" onClick={onExportJson}>
+              <Download className="w-3 h-3" /> Export JSON
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
