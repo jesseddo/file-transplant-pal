@@ -88,7 +88,7 @@ const ScenarioEditor = () => {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      <AppSidebar personas={personas} />
+      <AppSidebar personas={personas} activeSection="editor" />
 
       <div className="flex-1 flex flex-col min-w-0">
         <ScenarioHeader
