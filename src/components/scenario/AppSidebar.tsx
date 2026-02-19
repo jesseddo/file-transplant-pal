@@ -1,53 +1,65 @@
 import {
   LayoutDashboard, MonitorPlay, Library, FolderOpen,
   Workflow, TestTube, Component, MapPin,
-  Settings, Users, BarChart3, MessageCircle, User, FileSpreadsheet
+  Settings, Users, BarChart3, MessageCircle, User
 } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Persona } from "@/types/workflow";
-import { Button } from "@/components/ui/button";
 
 const NAV_SECTIONS = [
   {
     label: "LEARNER",
     items: [
-      { icon: LayoutDashboard, label: "Dashboard" },
-      { icon: MonitorPlay, label: "v3 Scenario Demo" },
-      { icon: Library, label: "Scenario Library" },
-      { icon: FolderOpen, label: "Resources" },
+      { icon: LayoutDashboard, label: "Dashboard", path: null },
+      { icon: MonitorPlay, label: "v3 Scenario Demo", path: null },
+      { icon: Library, label: "Scenario Library", path: null },
+      { icon: FolderOpen, label: "Resources", path: null },
     ],
   },
   {
     label: "DESIGNER",
     items: [
-      { icon: Workflow, label: "Scenarios", active: true },
-      { icon: TestTube, label: "Playtests" },
-      { icon: Component, label: "Component Gallery" },
-      { icon: MapPin, label: "Hotspot Mapper" },
+      { icon: Workflow, label: "Scenarios", path: "/" },
+      { icon: TestTube, label: "Playtests", path: null },
+      { icon: Component, label: "Component Gallery", path: null },
+      { icon: MapPin, label: "Hotspot Mapper", path: null },
     ],
   },
   {
     label: "FACILITATOR",
     items: [
-      { icon: Settings, label: "Operations Console" },
-      { icon: Users, label: "Learners" },
-      { icon: Workflow, label: "Scenarios" },
-      { icon: BarChart3, label: "Analytics" },
-      { icon: MessageCircle, label: "Coaching" },
+      { icon: Settings, label: "Operations Console", path: null },
+      { icon: Users, label: "Learners", path: null },
+      { icon: Workflow, label: "Scenarios", path: null },
+      { icon: BarChart3, label: "Analytics", path: null },
+      { icon: MessageCircle, label: "Coaching", path: null },
     ],
   },
 ];
 
 interface AppSidebarProps {
   personas?: Persona[];
-  onImportClick?: () => void;
+  activeSection?: "scenarios" | "editor";
 }
 
-export function AppSidebar({ personas = [], onImportClick }: AppSidebarProps) {
+export function AppSidebar({ personas = [], activeSection = "scenarios" }: AppSidebarProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // Deduplicate by name for the library display
   const uniquePersonas = personas.reduce<Persona[]>((acc, p) => {
     if (!acc.find(x => x.name === p.name)) acc.push(p);
     return acc;
   }, []);
+
+  const isActive = (path: string | null) => {
+    if (!path) return false;
+    if (path === "/") {
+      // "Scenarios" is active when on root or inside a scenario editor
+      return location.pathname === "/" || location.pathname.startsWith("/scenario/");
+    }
+    return location.pathname === path;
+  };
 
   return (
     <aside className="w-56 shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col h-screen">
@@ -64,24 +76,29 @@ export function AppSidebar({ personas = [], onImportClick }: AppSidebarProps) {
             <p className="px-4 mb-1 text-[10px] font-semibold tracking-wider text-sidebar-muted">
               {section.label}
             </p>
-            {section.items.map((item) => (
-              <button
-                key={item.label}
-                className={`w-full flex items-center gap-2.5 px-4 py-1.5 text-sm transition-colors ${
-                  item.active
-                    ? "text-primary font-medium bg-sidebar-accent"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent"
-                }`}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.label}
-              </button>
-            ))}
+            {section.items.map((item) => {
+              const active = isActive(item.path);
+              return (
+                <button
+                  key={`${section.label}-${item.label}`}
+                  onClick={() => item.path && navigate(item.path)}
+                  className={`w-full flex items-center gap-2.5 px-4 py-1.5 text-sm transition-colors ${
+                    active
+                      ? "text-primary font-medium bg-sidebar-accent"
+                      : item.path
+                      ? "text-sidebar-foreground hover:bg-sidebar-accent cursor-pointer"
+                      : "text-sidebar-foreground opacity-50 cursor-not-allowed"
+                  }`}
+                >
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                </button>
+              );
+            })}
           </div>
         ))}
 
-
-        {/* Persona Library */}
+        {/* Persona Library — shown when inside a scenario editor */}
         {uniquePersonas.length > 0 && (
           <div className="mb-4">
             <p className="px-4 mb-1 text-[10px] font-semibold tracking-wider text-sidebar-muted">
