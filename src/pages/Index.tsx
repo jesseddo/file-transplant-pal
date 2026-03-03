@@ -15,7 +15,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { buildExportPayload, downloadJson } from "@/lib/scenarioExporter";
 import { useToast } from "@/hooks/use-toast";
 import type { ImportResult } from "@/lib/excelImporter";
-import type { Step } from "@/types/workflow";
+import type { Step, Scene } from "@/types/workflow";
+
+let sceneNextId = 1000;
 
 const ScenarioEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -25,6 +27,7 @@ const ScenarioEditor = () => {
 
   const wf = useWorkflow(scenario?.steps);
   const { personas, importPersonas, setPersonas } = usePersonas(scenario?.personas);
+  const [scenes, setScenes] = useState<Scene[]>(scenario?.scenes ?? []);
   const [activeTab, setActiveTab] = useState("design");
   const [importOpen, setImportOpen] = useState(false);
   const [addSceneOpen, setAddSceneOpen] = useState(false);
@@ -33,8 +36,8 @@ const ScenarioEditor = () => {
   // Sync changes back to scenario storage
   useEffect(() => {
     if (!id) return;
-    updateScenario(id, { steps: wf.steps, personas });
-  }, [wf.steps, personas, id, updateScenario]);
+    updateScenario(id, { steps: wf.steps, personas, scenes });
+  }, [wf.steps, personas, scenes, id, updateScenario]);
 
   // Redirect if scenario not found
   useEffect(() => {
@@ -117,6 +120,7 @@ const ScenarioEditor = () => {
           <div className="flex-1 flex min-h-0 overflow-hidden">
             <WorkflowCanvas
               steps={wf.steps}
+              scenes={scenes}
               selectedStepId={wf.selectedStepId}
               selectedColumn={wf.selectedColumn}
               onSelectStep={wf.setSelectedStepId}
@@ -124,6 +128,20 @@ const ScenarioEditor = () => {
               onRemoveStep={wf.removeStep}
               onMoveStep={wf.moveStep}
               onAddStepToColumn={wf.addStepToColumn}
+              onAddScene={(title) => {
+                const newScene: Scene = { id: `scene_${sceneNextId++}`, title, order: scenes.length };
+                setScenes(prev => [...prev, newScene]);
+              }}
+              onRenameScene={(sceneId, title) => {
+                setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, title } : s));
+              }}
+              onRemoveScene={(sceneId) => {
+                setScenes(prev => prev.filter(s => s.id !== sceneId));
+                // Unassign steps from the removed scene
+                wf.steps.filter(s => s.sceneId === sceneId).forEach(s => {
+                  wf.updateStep(s.id, { sceneId: undefined });
+                });
+              }}
             />
 
             {wf.selectedStep ? (
@@ -131,6 +149,7 @@ const ScenarioEditor = () => {
                 step={wf.selectedStep}
                 allSteps={wf.steps}
                 personas={personas}
+                scenes={scenes}
                 onClose={() => wf.setSelectedStepId(null)}
                 onUpdate={wf.updateStep}
               />

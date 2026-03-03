@@ -10,11 +10,14 @@ export type StepType =
   | "fetch-document"
   | "generate-evaluation"
   | "interruption"
-  | "parallel-order";
+  | "parallel-order"
+  | "3d-environment"
+  | "decision-checkpoint"
+  | "redirect-loop";
 
 export type FlowBehavior = "linear" | "decision";
 
-export type ActionCategory = "Media" | "Simulation" | "Coaching" | "Resources & Compliance" | "Behavioral";
+export type ActionCategory = "Media" | "Simulation" | "Coaching" | "Resources & Compliance" | "Behavioral" | "Environment" | "Flow Control";
 
 // ── Persona ──
 
@@ -49,6 +52,14 @@ export interface SceneResource {
   hidden?: boolean;
 }
 
+// ── Scene (groups steps within simulation) ──
+
+export interface Scene {
+  id: string;
+  title: string;
+  order: number;
+}
+
 // ── Action Tile (palette) ──
 
 export interface ActionTile {
@@ -76,6 +87,7 @@ export interface Step {
   type: StepType;
   column: ColumnId;
   order: number;
+  sceneId?: string;
   flowBehavior?: FlowBehavior;
   choices?: BranchChoice[];
   routingRules?: RoutingRule[];
@@ -95,11 +107,14 @@ export const ACTION_TILES: ActionTile[] = [
   { type: "audio", label: "Audio", category: "Media", icon: "Headphones" },
   { type: "text-chat", label: "Text Chat Simulation", category: "Simulation", icon: "MessageSquare" },
   { type: "radio-call", label: "Radio Call", category: "Simulation", icon: "Radio" },
+  { type: "3d-environment", label: "3D Environment", category: "Environment", icon: "Box" },
   { type: "ai-coach", label: "AI Coach Reflection", category: "Coaching", icon: "Brain" },
   { type: "fetch-document", label: "Fetch Document/Permit", category: "Resources & Compliance", icon: "Download" },
   { type: "generate-evaluation", label: "Generate Evaluation", category: "Resources & Compliance", icon: "ClipboardCheck" },
   { type: "interruption", label: "Interruption", category: "Behavioral", icon: "AlertTriangle" },
   { type: "parallel-order", label: "Parallel Order", category: "Behavioral", icon: "GitBranch" },
+  { type: "decision-checkpoint", label: "Decision Checkpoint", category: "Flow Control", icon: "GitMerge" },
+  { type: "redirect-loop", label: "Redirect / Loop", category: "Flow Control", icon: "RotateCcw" },
 ];
 
 export const STEP_TYPE_LABELS: Record<StepType, string> = {
@@ -113,6 +128,9 @@ export const STEP_TYPE_LABELS: Record<StepType, string> = {
   "generate-evaluation": "Evaluation",
   interruption: "Interruption",
   "parallel-order": "Parallel Order",
+  "3d-environment": "3D Environment",
+  "decision-checkpoint": "Decision",
+  "redirect-loop": "Redirect",
 };
 
 export const STEP_TYPE_CATEGORY: Record<StepType, ActionCategory> = {
@@ -121,11 +139,14 @@ export const STEP_TYPE_CATEGORY: Record<StepType, ActionCategory> = {
   audio: "Media",
   "text-chat": "Simulation",
   "radio-call": "Simulation",
+  "3d-environment": "Environment",
   "ai-coach": "Coaching",
   "fetch-document": "Resources & Compliance",
   "generate-evaluation": "Resources & Compliance",
   interruption: "Behavioral",
   "parallel-order": "Behavioral",
+  "decision-checkpoint": "Flow Control",
+  "redirect-loop": "Flow Control",
 };
 
 export const CATEGORY_BADGE_CLASS: Record<ActionCategory, string> = {
@@ -134,6 +155,8 @@ export const CATEGORY_BADGE_CLASS: Record<ActionCategory, string> = {
   Coaching: "bg-[hsl(var(--badge-coaching))] text-[hsl(var(--badge-coaching-fg))]",
   "Resources & Compliance": "bg-[hsl(var(--badge-resource))] text-[hsl(var(--badge-resource-fg))]",
   Behavioral: "bg-[hsl(var(--badge-behavioral))] text-[hsl(var(--badge-behavioral-fg))]",
+  Environment: "bg-[hsl(var(--badge-environment))] text-[hsl(var(--badge-environment-fg))]",
+  "Flow Control": "bg-[hsl(var(--badge-flow))] text-[hsl(var(--badge-flow-fg))]",
 };
 
 export type CriticalityLevel = "safety-critical" | "operational" | "training";
@@ -151,6 +174,7 @@ export interface Scenario {
   steps: Step[];
   personas: Persona[];
   resources: SceneResource[];
+  scenes: Scene[];
 }
 
 export const CRITICALITY_LABELS: Record<CriticalityLevel, string> = {

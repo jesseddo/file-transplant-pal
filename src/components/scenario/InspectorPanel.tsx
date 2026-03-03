@@ -1,4 +1,4 @@
-import { Step, BranchChoice, SimTask, Persona, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid } from "@/types/workflow";
+import { Step, BranchChoice, SimTask, Persona, Scene, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid } from "@/types/workflow";
 import { X, Plus, Trash2, AlertCircle, ChevronDown, ChevronRight, Eye, EyeOff, User, MessageSquare, ListChecks, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ interface InspectorPanelProps {
   step: Step;
   allSteps: Step[];
   personas: Persona[];
+  scenes: Scene[];
   onClose: () => void;
   onUpdate: (id: string, updates: Partial<Step>) => void;
 }
@@ -42,7 +43,7 @@ function Section({ title, icon: Icon, defaultOpen = true, children, badge }: {
 }
 
 /* ── Main panel ── */
-export function InspectorPanel({ step, allSteps, personas, onClose, onUpdate }: InspectorPanelProps) {
+export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUpdate }: InspectorPanelProps) {
   const category = STEP_TYPE_CATEGORY[step.type];
   const badgeClass = CATEGORY_BADGE_CLASS[category];
   const flowBehavior = step.flowBehavior ?? "linear";
@@ -129,6 +130,21 @@ export function InspectorPanel({ step, allSteps, personas, onClose, onUpdate }: 
             <Label className="text-xs">Column</Label>
             <p className="text-sm text-foreground mt-1 capitalize">{step.column}</p>
           </div>
+          {step.column === "simulation" && scenes.length > 0 && (
+            <div className="flex-1">
+              <Label className="text-xs">Scene</Label>
+              <select
+                value={step.sceneId ?? ""}
+                onChange={(e) => onUpdate(step.id, { sceneId: e.target.value || undefined })}
+                className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+              >
+                <option value="">— Ungrouped —</option>
+                {scenes.map(s => (
+                  <option key={s.id} value={s.id}>{s.title}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <hr className="border-border" />
