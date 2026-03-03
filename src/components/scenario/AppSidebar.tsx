@@ -21,7 +21,7 @@ const NAV_SECTIONS = [
     items: [
       { icon: Workflow, label: "Scenarios", path: "/" },
       { icon: TestTube, label: "Playtests", path: null },
-      { icon: Component, label: "Component Gallery", path: null },
+      { icon: Component, label: "Component Gallery", path: "/component-gallery" },
       { icon: MapPin, label: "Hotspot Mapper", path: null },
     ],
   },
