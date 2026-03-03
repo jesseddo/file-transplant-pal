@@ -17,7 +17,9 @@ export type StepType =
 
 export type FlowBehavior = "linear" | "decision";
 
-export type ActionCategory = "Media" | "Simulation" | "Coaching" | "Resources & Compliance" | "Behavioral" | "Environment" | "Flow Control";
+export type ActivityCategory = "Communication" | "Media" | "Immersive" | "Reflection";
+export type MechanicCategory = "Branching" | "Assessment" | "Behavioral";
+export type StepCategory = ActivityCategory | MechanicCategory;
 
 // ── Persona ──
 
@@ -38,7 +40,7 @@ export interface SimTask {
   description: string;
   completionCriteria: string;
   isHidden: boolean;
-  nextNodeId?: string; // step id, "__end__", or undefined (no routing)
+  nextNodeId?: string;
 }
 
 // ── Scene Resource ──
@@ -65,8 +67,9 @@ export interface Scene {
 export interface ActionTile {
   type: StepType;
   label: string;
-  category: ActionCategory;
+  category: StepCategory;
   icon: string;
+  isMechanic: boolean;
 }
 
 export interface BranchChoice {
@@ -102,19 +105,21 @@ export interface Step {
 }
 
 export const ACTION_TILES: ActionTile[] = [
-  { type: "video", label: "Video", category: "Media", icon: "Play" },
-  { type: "pdf", label: "PDF Document", category: "Media", icon: "FileText" },
-  { type: "audio", label: "Audio", category: "Media", icon: "Headphones" },
-  { type: "text-chat", label: "Text Chat Simulation", category: "Simulation", icon: "MessageSquare" },
-  { type: "radio-call", label: "Radio Call", category: "Simulation", icon: "Radio" },
-  { type: "3d-environment", label: "3D Environment", category: "Environment", icon: "Box" },
-  { type: "ai-coach", label: "AI Coach Reflection", category: "Coaching", icon: "Brain" },
-  { type: "fetch-document", label: "Fetch Document/Permit", category: "Resources & Compliance", icon: "Download" },
-  { type: "generate-evaluation", label: "Generate Evaluation", category: "Resources & Compliance", icon: "ClipboardCheck" },
-  { type: "interruption", label: "Interruption", category: "Behavioral", icon: "AlertTriangle" },
-  { type: "parallel-order", label: "Parallel Order", category: "Behavioral", icon: "GitBranch" },
-  { type: "decision-checkpoint", label: "Decision Checkpoint", category: "Flow Control", icon: "GitMerge" },
-  { type: "redirect-loop", label: "Redirect / Loop", category: "Flow Control", icon: "RotateCcw" },
+  // Activities (learner-facing)
+  { type: "text-chat", label: "Text Chat", category: "Communication", icon: "MessageSquare", isMechanic: false },
+  { type: "radio-call", label: "Radio Call", category: "Communication", icon: "Radio", isMechanic: false },
+  { type: "video", label: "Video", category: "Media", icon: "Play", isMechanic: false },
+  { type: "audio", label: "Audio", category: "Media", icon: "Headphones", isMechanic: false },
+  { type: "pdf", label: "PDF / Document", category: "Media", icon: "FileText", isMechanic: false },
+  { type: "3d-environment", label: "3D Environment", category: "Immersive", icon: "Box", isMechanic: false },
+  { type: "ai-coach", label: "AI Coach Reflection", category: "Reflection", icon: "Brain", isMechanic: false },
+  // Mechanics (designer-facing)
+  { type: "decision-checkpoint", label: "Decision Point", category: "Branching", icon: "GitMerge", isMechanic: true },
+  { type: "redirect-loop", label: "Redirect / Loop", category: "Branching", icon: "RotateCcw", isMechanic: true },
+  { type: "fetch-document", label: "Fetch Document", category: "Assessment", icon: "Download", isMechanic: true },
+  { type: "generate-evaluation", label: "Evaluation Report", category: "Assessment", icon: "ClipboardCheck", isMechanic: true },
+  { type: "interruption", label: "Interruption Trigger", category: "Behavioral", icon: "AlertTriangle", isMechanic: true },
+  { type: "parallel-order", label: "Parallel Pressure", category: "Behavioral", icon: "GitBranch", isMechanic: true },
 ];
 
 export const STEP_TYPE_LABELS: Record<StepType, string> = {
@@ -127,36 +132,52 @@ export const STEP_TYPE_LABELS: Record<StepType, string> = {
   "fetch-document": "Fetch Doc",
   "generate-evaluation": "Evaluation",
   interruption: "Interruption",
-  "parallel-order": "Parallel Order",
+  "parallel-order": "Parallel",
   "3d-environment": "3D Environment",
   "decision-checkpoint": "Decision",
   "redirect-loop": "Redirect",
 };
 
-export const STEP_TYPE_CATEGORY: Record<StepType, ActionCategory> = {
+export const STEP_TYPE_CATEGORY: Record<StepType, StepCategory> = {
   video: "Media",
   pdf: "Media",
   audio: "Media",
-  "text-chat": "Simulation",
-  "radio-call": "Simulation",
-  "3d-environment": "Environment",
-  "ai-coach": "Coaching",
-  "fetch-document": "Resources & Compliance",
-  "generate-evaluation": "Resources & Compliance",
+  "text-chat": "Communication",
+  "radio-call": "Communication",
+  "3d-environment": "Immersive",
+  "ai-coach": "Reflection",
+  "fetch-document": "Assessment",
+  "generate-evaluation": "Assessment",
   interruption: "Behavioral",
   "parallel-order": "Behavioral",
-  "decision-checkpoint": "Flow Control",
-  "redirect-loop": "Flow Control",
+  "decision-checkpoint": "Branching",
+  "redirect-loop": "Branching",
 };
 
-export const CATEGORY_BADGE_CLASS: Record<ActionCategory, string> = {
+export const STEP_IS_MECHANIC: Record<StepType, boolean> = {
+  video: false,
+  pdf: false,
+  audio: false,
+  "text-chat": false,
+  "radio-call": false,
+  "3d-environment": false,
+  "ai-coach": false,
+  "fetch-document": true,
+  "generate-evaluation": true,
+  interruption: true,
+  "parallel-order": true,
+  "decision-checkpoint": true,
+  "redirect-loop": true,
+};
+
+export const CATEGORY_BADGE_CLASS: Record<StepCategory, string> = {
+  Communication: "bg-[hsl(var(--badge-communication))] text-[hsl(var(--badge-communication-fg))]",
   Media: "bg-[hsl(var(--badge-media))] text-[hsl(var(--badge-media-fg))]",
-  Simulation: "bg-[hsl(var(--badge-simulation))] text-[hsl(var(--badge-simulation-fg))]",
-  Coaching: "bg-[hsl(var(--badge-coaching))] text-[hsl(var(--badge-coaching-fg))]",
-  "Resources & Compliance": "bg-[hsl(var(--badge-resource))] text-[hsl(var(--badge-resource-fg))]",
+  Immersive: "bg-[hsl(var(--badge-immersive))] text-[hsl(var(--badge-immersive-fg))]",
+  Reflection: "bg-[hsl(var(--badge-reflection))] text-[hsl(var(--badge-reflection-fg))]",
+  Branching: "bg-[hsl(var(--badge-branching))] text-[hsl(var(--badge-branching-fg))]",
+  Assessment: "bg-[hsl(var(--badge-assessment))] text-[hsl(var(--badge-assessment-fg))]",
   Behavioral: "bg-[hsl(var(--badge-behavioral))] text-[hsl(var(--badge-behavioral-fg))]",
-  Environment: "bg-[hsl(var(--badge-environment))] text-[hsl(var(--badge-environment-fg))]",
-  "Flow Control": "bg-[hsl(var(--badge-flow))] text-[hsl(var(--badge-flow-fg))]",
 };
 
 export type CriticalityLevel = "safety-critical" | "operational" | "training";

@@ -1,5 +1,5 @@
 import { useState, DragEvent, useCallback, useRef, useEffect, useMemo } from "react";
-import { Step, ColumnId, StepType, ACTION_TILES, ActionCategory, Scene } from "@/types/workflow";
+import { Step, ColumnId, StepType, ACTION_TILES, StepCategory, Scene } from "@/types/workflow";
 import { StepCard } from "./StepCard";
 import { SceneContainer } from "./SceneContainer";
 import { Plus } from "lucide-react";
@@ -26,7 +26,7 @@ const COLUMNS: { id: ColumnId; label: string; headerClass: string; bgClass: stri
   { id: "review", label: "REVIEW", headerClass: "bg-[hsl(var(--column-header-review))]", bgClass: "bg-[hsl(var(--column-review))]" },
 ];
 
-const CATEGORIES: ActionCategory[] = ["Media", "Simulation", "Environment", "Coaching", "Resources & Compliance", "Behavioral", "Flow Control"];
+const CATEGORIES: StepCategory[] = ["Communication", "Media", "Immersive", "Reflection", "Branching", "Assessment", "Behavioral"];
 
 /* ── Inline step-type picker ── */
 function AddStepPicker({ column, onAdd, onClose }: {

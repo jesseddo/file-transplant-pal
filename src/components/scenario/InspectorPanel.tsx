@@ -1,5 +1,5 @@
-import { Step, BranchChoice, SimTask, Persona, Scene, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid } from "@/types/workflow";
-import { X, Plus, Trash2, AlertCircle, ChevronDown, ChevronRight, Eye, EyeOff, User, MessageSquare, ListChecks, FileText } from "lucide-react";
+import { Step, BranchChoice, SimTask, Persona, Scene, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, STEP_IS_MECHANIC, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid } from "@/types/workflow";
+import { X, Plus, Trash2, AlertCircle, ChevronDown, ChevronRight, Eye, EyeOff, User, MessageSquare, ListChecks, FileText, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,6 +46,7 @@ function Section({ title, icon: Icon, defaultOpen = true, children, badge }: {
 export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUpdate }: InspectorPanelProps) {
   const category = STEP_TYPE_CATEGORY[step.type];
   const badgeClass = CATEGORY_BADGE_CLASS[category];
+  const isMechanic = STEP_IS_MECHANIC[step.type];
   const flowBehavior = step.flowBehavior ?? "linear";
   const isDecision = flowBehavior === "decision";
   const choices = step.choices ?? [];
@@ -82,7 +83,7 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
   }, [step.id, choices, onUpdate]);
 
   const addTask = useCallback(() => {
-    const newTask: SimTask = { id: `task-${Date.now()}`, description: "", completionCriteria: "", isHidden: false };
+    const newTask: SimTask = { id: `t-${Date.now()}`, description: "", completionCriteria: "", isHidden: false };
     onUpdate(step.id, { tasks: [...tasks, newTask] });
   }, [step.id, tasks, onUpdate]);
 
@@ -103,7 +104,16 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
     )}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-        <h2 className="text-xs font-bold tracking-wider text-foreground">INSPECTOR</h2>
+        <div className="flex items-center gap-2">
+          {isMechanic ? (
+            <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />
+          ) : (
+            <Eye className="w-3.5 h-3.5 text-primary" />
+          )}
+          <h2 className="text-xs font-bold tracking-wider text-foreground">
+            {isMechanic ? "MECHANIC" : "ACTIVITY"} SETTINGS
+          </h2>
+        </div>
         <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
           <X className="w-4 h-4" />
         </button>
@@ -112,12 +122,12 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
       <div className="p-4 space-y-3">
         {/* Title */}
         <div>
-          <Label className="text-xs">Title</Label>
+          <Label className="text-xs">Step Title</Label>
           <Input value={step.title} onChange={(e) => onUpdate(step.id, { title: e.target.value })} className="mt-1" />
         </div>
 
-        {/* Type + Column row */}
-        <div className="flex items-center gap-3">
+        {/* Type + Column + Scene row */}
+        <div className="flex items-center gap-3 flex-wrap">
           <div>
             <Label className="text-xs">Type</Label>
             <div className="mt-1">
@@ -127,11 +137,11 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
             </div>
           </div>
           <div>
-            <Label className="text-xs">Column</Label>
+            <Label className="text-xs">Phase</Label>
             <p className="text-sm text-foreground mt-1 capitalize">{step.column}</p>
           </div>
           {step.column === "simulation" && scenes.length > 0 && (
-            <div className="flex-1">
+            <div className="flex-1 min-w-[120px]">
               <Label className="text-xs">Scene</Label>
               <select
                 value={step.sceneId ?? ""}
@@ -147,7 +157,29 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
           )}
         </div>
 
+        {/* Activity/Mechanic indicator */}
+        <div className={cn(
+          "rounded-md px-3 py-2 text-xs flex items-center gap-2",
+          isMechanic ? "bg-muted/50 text-muted-foreground" : "bg-primary/5 text-primary"
+        )}>
+          {isMechanic ? (
+            <>
+              <EyeOff className="w-3.5 h-3.5" />
+              <span><strong>Mechanic</strong> — Designer-facing logic. May be hidden from the learner.</span>
+            </>
+          ) : (
+            <>
+              <Eye className="w-3.5 h-3.5" />
+              <span><strong>Activity</strong> — The learner will see and interact with this step.</span>
+            </>
+          )}
+        </div>
+
         <hr className="border-border" />
+
+        {/* ══════════════════════════════════════════════════ */}
+        {/* ACTIVITY SETTINGS (learner-facing configuration)  */}
+        {/* ══════════════════════════════════════════════════ */}
 
         {/* ── PERSONA SECTION (chat-sim only) ── */}
         {isChatSim && (
@@ -201,13 +233,46 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
           </Section>
         )}
 
-        {/* ── TASKS SECTION (chat-sim or any step with tasks) ── */}
+        {/* ── TYPE-SPECIFIC FIELDS (non-chat Activity types) ── */}
+        {!isChatSim && !isMechanic && (
+          <>
+            {(step.type === "video" || step.type === "audio") && (
+              <>
+                <div>
+                  <Label className="text-xs">Media URL</Label>
+                  <Input placeholder="https://..." className="mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs">Duration (seconds)</Label>
+                  <Input type="number" placeholder="120" className="mt-1" />
+                </div>
+              </>
+            )}
+            {step.type === "pdf" && (
+              <div>
+                <Label className="text-xs">Document URL</Label>
+                <Input placeholder="https://..." className="mt-1" />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ══════════════════════════════════════════════════ */}
+        {/* MECHANICS (designer-facing configuration)         */}
+        {/* ══════════════════════════════════════════════════ */}
+
+        <div className="flex items-center gap-2 pt-1">
+          <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
+          <h3 className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">Mechanics</h3>
+        </div>
+
+        {/* ── LEARNER TASKS ── */}
         {(isChatSim || tasks.length > 0) && (
-          <Section title="Learner Tasks" icon={ListChecks} badge={
+          <Section title="Completion Tasks" icon={ListChecks} badge={
             <span className="text-[10px] text-muted-foreground">{tasks.length} task{tasks.length !== 1 ? "s" : ""}</span>
           }>
             <p className="text-[11px] text-muted-foreground -mt-1">
-              What must the learner do or demonstrate in this step?
+              What must the learner do or demonstrate? Hidden tasks are scored silently.
             </p>
 
             {tasks.map((task, idx) => (
@@ -225,7 +290,7 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
                       {task.isHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                     </button>
                     {task.isHidden && (
-                      <span className="text-[9px] text-muted-foreground">Hidden</span>
+                      <span className="text-[9px] text-muted-foreground">Hidden mechanic</span>
                     )}
                   </div>
                   <button onClick={() => removeTask(task.id)} className="text-muted-foreground hover:text-destructive">
@@ -275,7 +340,7 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
           </Section>
         )}
 
-        {/* ── RESOURCES SECTION (chat-sim only) ── */}
+        {/* ── RESOURCES SECTION ── */}
         {isChatSim && (
           <Section title="Resources" icon={FileText} defaultOpen={false} badge={
             <span className="text-[10px] text-muted-foreground">
@@ -297,10 +362,8 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
           </Section>
         )}
 
-        <hr className="border-border" />
-
         {/* ── FLOW BEHAVIOR ── */}
-        <Section title="Flow Behavior" icon={MessageSquare} defaultOpen={isDecision}>
+        <Section title="Flow Control" icon={MessageSquare} defaultOpen={isDecision}>
           <RadioGroup value={flowBehavior} onValueChange={setFlowBehavior} className="gap-3">
             <div className="flex items-center gap-2">
               <RadioGroupItem value="linear" id="flow-linear" />
@@ -311,7 +374,7 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
             <div className="flex items-center gap-2">
               <RadioGroupItem value="decision" id="flow-decision" />
               <Label htmlFor="flow-decision" className="text-xs font-normal cursor-pointer">
-                Decision — learner picks what to do next
+                Decision Point — learner picks what to do next
               </Label>
             </div>
           </RadioGroup>
@@ -374,27 +437,9 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
           )}
         </Section>
 
-        {/* ── TYPE-SPECIFIC FIELDS (non-chat types) ── */}
-        {!isChatSim && (
+        {/* ── MECHANIC-SPECIFIC FIELDS ── */}
+        {isMechanic && (
           <>
-            {(step.type === "video" || step.type === "audio") && (
-              <>
-                <div>
-                  <Label className="text-xs">Media URL</Label>
-                  <Input placeholder="https://..." className="mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs">Duration (seconds)</Label>
-                  <Input type="number" placeholder="120" className="mt-1" />
-                </div>
-              </>
-            )}
-            {step.type === "pdf" && (
-              <div>
-                <Label className="text-xs">Document URL</Label>
-                <Input placeholder="https://..." className="mt-1" />
-              </div>
-            )}
             {step.type === "fetch-document" && (
               <div>
                 <Label className="text-xs">Permit ID / Document Reference</Label>
@@ -428,7 +473,7 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
 
         <div>
           <Label className="text-xs">Notes</Label>
-          <Textarea placeholder="Add notes..." className="mt-1" rows={2} />
+          <Textarea placeholder="Add design notes for your team..." className="mt-1" rows={2} />
         </div>
       </div>
     </div>
