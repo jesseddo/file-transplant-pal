@@ -66,6 +66,10 @@
     --badge-resource-fg: 30 80% 30%;
     --badge-behavioral: 340 70% 92%;
     --badge-behavioral-fg: 340 70% 30%;
+    --badge-environment: 170 60% 90%;
+    --badge-environment-fg: 170 60% 25%;
+    --badge-flow: 280 60% 92%;
+    --badge-flow-fg: 280 60% 30%;
 
     --actions-panel: 0 0% 100%;
   }
