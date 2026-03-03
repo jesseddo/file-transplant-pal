@@ -43,7 +43,7 @@ export function ScenarioCard({ scenario, onDelete }: ScenarioCardProps) {
         )}
         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
-            <Layers className="w-3 h-3" /> {scenario.steps.length} steps
+            <Layers className="w-3 h-3" /> {scenario.steps.length} step{scenario.steps.length !== 1 ? "s" : ""}
           </span>
           <span className="flex items-center gap-1">
             <Users className="w-3 h-3" /> {scenario.personas.length} personas
