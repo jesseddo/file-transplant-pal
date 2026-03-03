@@ -75,7 +75,7 @@ const ACTIVITIES: TaxonomyCategory[] = [
     ],
   },
   {
-    title: "Immersive",
+    title: "Content",
     items: [
       {
         icon: Box,
@@ -162,7 +162,7 @@ const MECHANICS: TaxonomyCategory[] = [
     ],
   },
   {
-    title: "Behavioral",
+    title: "Triggers",
     items: [
       {
         icon: AlertTriangle,

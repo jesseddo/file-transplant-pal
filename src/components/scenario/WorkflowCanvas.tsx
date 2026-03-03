@@ -1,5 +1,5 @@
 import { useState, DragEvent, useCallback, useRef, useEffect, useMemo } from "react";
-import { Step, ColumnId, StepType, ACTION_TILES, StepCategory, Scene } from "@/types/workflow";
+import { Step, ColumnId, StepType, ACTION_TILES, StepCategory, Scene, STEP_CATEGORIES_ORDER } from "@/types/workflow";
 import { StepCard } from "./StepCard";
 import { SceneContainer } from "./SceneContainer";
 import { Plus } from "lucide-react";
@@ -26,7 +26,7 @@ const COLUMNS: { id: ColumnId; label: string; headerClass: string; bgClass: stri
   { id: "review", label: "REVIEW", headerClass: "bg-[hsl(var(--column-header-review))]", bgClass: "bg-[hsl(var(--column-review))]" },
 ];
 
-const CATEGORIES: StepCategory[] = ["Communication", "Media", "Immersive", "Reflection", "Branching", "Assessment", "Behavioral"];
+const CATEGORIES = STEP_CATEGORIES_ORDER;
 
 /* ── Inline step-type picker ── */
 function AddStepPicker({ column, onAdd, onClose }: {
@@ -345,7 +345,7 @@ export function WorkflowCanvas({
         {/* SIMULATION column — scene-based */}
         <div
           ref={simContainerRef}
-          className={`flex-1 min-w-[320px] max-w-[800px] shrink-0 rounded-lg border-2 transition-colors relative ${
+          className={`flex-1 min-w-[320px] shrink-0 rounded-lg border-2 transition-colors relative ${
             isSimDropHere
               ? "border-primary/50 bg-primary/5"
               : isSimActive
@@ -375,22 +375,34 @@ export function WorkflowCanvas({
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, "simulation")}
           >
-            <SceneArrows scenes={scenes} steps={steps} containerRef={simContainerRef} />
+            {/* Arrows now inline with scenes */}
 
-            {/* Scene containers in a flow grid */}
+            {/* Scene containers in horizontal flow */}
             {simSceneGroups.groups.length > 0 ? (
-              <div className="flex flex-wrap gap-3 relative z-20">
-                {simSceneGroups.groups.map(({ scene, steps: sceneSteps }) => (
-                  <div key={scene.id} className="w-[260px] shrink-0">
-                    <SceneContainer
-                      scene={scene}
-                      steps={sceneSteps}
-                      selectedStepId={selectedStepId}
-                      onSelectStep={onSelectStep}
-                      onRemoveStep={onRemoveStep}
-                      onRenameScene={onRenameScene}
-                      onRemoveScene={onRemoveScene}
-                    />
+              <div className="flex gap-3 relative z-20 overflow-x-auto pb-2 scrollbar-thin">
+                {simSceneGroups.groups.map(({ scene, steps: sceneSteps }, idx) => (
+                  <div key={scene.id} className="flex items-center shrink-0">
+                    {idx > 0 && (
+                      <svg className="w-8 h-6 shrink-0 -mx-1" viewBox="0 0 32 24">
+                        <defs>
+                          <marker id={`arrow-${scene.id}`} markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                            <path d="M 0 0 L 8 3 L 0 6 Z" fill="hsl(var(--connection))" />
+                          </marker>
+                        </defs>
+                        <line x1="0" y1="12" x2="24" y2="12" stroke="hsl(var(--connection))" strokeWidth="1.5" markerEnd={`url(#arrow-${scene.id})`} />
+                      </svg>
+                    )}
+                    <div className="w-[260px] shrink-0">
+                      <SceneContainer
+                        scene={scene}
+                        steps={sceneSteps}
+                        selectedStepId={selectedStepId}
+                        onSelectStep={onSelectStep}
+                        onRemoveStep={onRemoveStep}
+                        onRenameScene={onRenameScene}
+                        onRemoveScene={onRemoveScene}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
