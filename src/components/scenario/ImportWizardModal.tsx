@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileSpreadsheet, AlertTriangle, CheckCircle2, ArrowRight, ArrowLeft } from "lucide-react";
+import { Upload, FileSpreadsheet, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, ArrowRight, ArrowLeft } from "lucide-react";
 import {
   parseWorkbook,
   autoDetectMapping,
