@@ -13,8 +13,8 @@ interface CanvasProps {
   onSelectStep: (id: string | null) => void;
   onSelectColumn: (col: ColumnId) => void;
   onRemoveStep: (id: string) => void;
-  onMoveStep: (stepId: string, toColumn: ColumnId, toIndex: number) => void;
-  onAddStepToColumn: (type: StepType, label: string, column: ColumnId, index: number) => void;
+  onMoveStep: (stepId: string, toColumn: ColumnId, toIndex: number, sceneId?: string) => void;
+  onAddStepToColumn: (type: StepType, label: string, column: ColumnId, index: number, sceneId?: string) => void;
   onAddScene: (title: string) => void;
   onRenameScene: (sceneId: string, title: string) => void;
   onRemoveScene: (sceneId: string) => void;
@@ -217,7 +217,7 @@ export function WorkflowCanvas({
     return { groups, ungrouped };
   }, [steps, scenes]);
 
-  const getDropIndex = useCallback((e: DragEvent, col: ColumnId) => {
+  const getDropInfo = useCallback((e: DragEvent, col: ColumnId): { index: number; sceneId?: string } => {
     const container = e.currentTarget as HTMLElement;
 
     if (col === "simulation") {
@@ -229,18 +229,19 @@ export function WorkflowCanvas({
         const sceneRect = sceneEl.getBoundingClientRect();
         if (mouseX >= sceneRect.left && mouseX <= sceneRect.right &&
             mouseY >= sceneRect.top && mouseY <= sceneRect.bottom) {
+          const sceneId = sceneEl.getAttribute("data-scene-id") || undefined;
           const cards = Array.from(sceneEl.querySelectorAll("[data-step-id]"));
           for (let i = 0; i < cards.length; i++) {
             const rect = cards[i].getBoundingClientRect();
             const midY = rect.top + rect.height / 2;
-            if (mouseY < midY) return i;
+            if (mouseY < midY) return { index: i, sceneId };
           }
-          return cards.length;
+          return { index: cards.length, sceneId };
         }
       }
 
       const allCards = Array.from(container.querySelectorAll("[data-step-id]"));
-      return allCards.length;
+      return { index: allCards.length, sceneId: undefined };
     }
 
     const cards = Array.from(container.querySelectorAll("[data-step-id]"));
@@ -249,36 +250,36 @@ export function WorkflowCanvas({
     for (let i = 0; i < cards.length; i++) {
       const rect = cards[i].getBoundingClientRect();
       const midY = rect.top + rect.height / 2;
-      if (mouseY < midY) return i;
+      if (mouseY < midY) return { index: i };
     }
-    return cards.length;
+    return { index: cards.length };
   }, []);
 
   const handleDragOver = useCallback((e: DragEvent, col: ColumnId) => {
     e.preventDefault();
     e.stopPropagation();
-    const index = getDropIndex(e, col);
+    const { index } = getDropInfo(e, col);
     setDropTarget({ col, index });
-  }, [getDropIndex]);
+  }, [getDropInfo]);
 
   const handleDrop = useCallback((e: DragEvent, col: ColumnId) => {
     e.preventDefault();
     e.stopPropagation();
     const actionType = e.dataTransfer.getData("application/action-type");
     const actionLabel = e.dataTransfer.getData("application/action-label");
-    const index = getDropIndex(e, col);
+    const { index, sceneId } = getDropInfo(e, col);
 
     if (actionType && actionLabel) {
-      onAddStepToColumn(actionType as StepType, actionLabel, col, index);
+      onAddStepToColumn(actionType as StepType, actionLabel, col, index, sceneId);
     } else {
       const stepId = e.dataTransfer.getData("text/plain");
       if (stepId) {
-        onMoveStep(stepId, col, index);
+        onMoveStep(stepId, col, index, sceneId);
       }
     }
     onSelectColumn(col);
     setDropTarget(null);
-  }, [getDropIndex, onMoveStep, onSelectColumn, onAddStepToColumn]);
+  }, [getDropInfo, onMoveStep, onSelectColumn, onAddStepToColumn]);
 
   const handleDragLeave = useCallback(() => {
     setDropTarget(null);

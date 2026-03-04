@@ -194,12 +194,15 @@ export function useWorkflow(initialSteps?: Step[]) {
     setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, ...updates } : s)));
   }, []);
 
-  const addStepToColumn = useCallback((type: StepType, title: string, column: ColumnId, index: number): string => {
+  const addStepToColumn = useCallback((type: StepType, title: string, column: ColumnId, index: number, sceneId?: string): string => {
     const id = `s${nextId++}`;
     setSteps((prev) => {
       const colSteps = prev.filter((s) => s.column === column).sort((a, b) => a.order - b.order);
       const clampedIndex = Math.max(0, Math.min(index, colSteps.length));
       const newStep: Step = { id, title, type, column, order: clampedIndex };
+      if (sceneId) {
+        newStep.sceneId = sceneId;
+      }
       colSteps.splice(clampedIndex, 0, newStep);
       colSteps.forEach((s, i) => (s.order = i));
       const otherSteps = prev.filter((s) => s.column !== column);
@@ -209,14 +212,18 @@ export function useWorkflow(initialSteps?: Step[]) {
     return id;
   }, []);
 
-  const moveStep = useCallback((stepId: string, toColumn: ColumnId, toIndex: number) => {
+  const moveStep = useCallback((stepId: string, toColumn: ColumnId, toIndex: number, sceneId?: string) => {
     setSteps((prev) => {
       const step = prev.find((s) => s.id === stepId);
       if (!step) return prev;
       const withoutStep = prev.filter((s) => s.id !== stepId);
       const targetColSteps = withoutStep.filter((s) => s.column === toColumn).sort((a, b) => a.order - b.order);
       const clampedIndex = Math.max(0, Math.min(toIndex, targetColSteps.length));
-      targetColSteps.splice(clampedIndex, 0, { ...step, column: toColumn });
+      const movedStep = { ...step, column: toColumn };
+      if (sceneId !== undefined) {
+        movedStep.sceneId = sceneId;
+      }
+      targetColSteps.splice(clampedIndex, 0, movedStep);
       targetColSteps.forEach((s, i) => (s.order = i));
       const sourceColSteps = toColumn !== step.column
         ? withoutStep.filter((s) => s.column === step.column).sort((a, b) => a.order - b.order)
