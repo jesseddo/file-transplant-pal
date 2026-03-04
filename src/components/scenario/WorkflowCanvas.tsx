@@ -219,6 +219,30 @@ export function WorkflowCanvas({
 
   const getDropIndex = useCallback((e: DragEvent, col: ColumnId) => {
     const container = e.currentTarget as HTMLElement;
+
+    if (col === "simulation") {
+      const sceneContainers = Array.from(container.querySelectorAll("[data-scene-id]"));
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      for (const sceneEl of sceneContainers) {
+        const sceneRect = sceneEl.getBoundingClientRect();
+        if (mouseX >= sceneRect.left && mouseX <= sceneRect.right &&
+            mouseY >= sceneRect.top && mouseY <= sceneRect.bottom) {
+          const cards = Array.from(sceneEl.querySelectorAll("[data-step-id]"));
+          for (let i = 0; i < cards.length; i++) {
+            const rect = cards[i].getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            if (mouseY < midY) return i;
+          }
+          return cards.length;
+        }
+      }
+
+      const allCards = Array.from(container.querySelectorAll("[data-step-id]"));
+      return allCards.length;
+    }
+
     const cards = Array.from(container.querySelectorAll("[data-step-id]"));
     const mouseY = e.clientY;
 
