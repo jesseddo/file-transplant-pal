@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { Step, ColumnId, StepType, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid, TrackId } from "@/types/workflow";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, GitBranch, StopCircle, ZoomIn, ZoomOut, Maximize, LayoutGrid, RotateCcw, Settings2, X, Zap, CornerDownLeft, Pause } from "lucide-react";
+import { TriangleAlert as AlertTriangle, GitBranch, CircleStop as StopCircle, ZoomIn, ZoomOut, Maximize, LayoutGrid, RotateCcw, Settings2, X, Zap, CornerDownLeft, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { EditLogicModal } from "@/components/scenario/EditLogicModal";
