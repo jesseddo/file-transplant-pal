@@ -27,7 +27,7 @@ const INITIAL_STEPS: Step[] = [
     order: 0,
     sceneId: "scene_A1",
     personaId: "persona_mike",
-    flowBehavior: "decision",
+    flowBehavior: "conditional",
     choices: [
       { id: "A1_c1", label: "Initiate walkdown to verify isolations", actionId: "initiate_walkdown", nextStepId: "A2_Perform_Walkdown" },
       { id: "A1_c2", label: "Approve PTW immediately (premature)", actionId: "premature_signoff", nextStepId: "A1B_Redirect" },
@@ -57,7 +57,7 @@ const INITIAL_STEPS: Step[] = [
     sceneId: "scene_A2",
     personaId: "persona_tom",
     givenResourceIds: ["SWC"],
-    flowBehavior: "decision",
+    flowBehavior: "conditional",
     choices: [
       { id: "A2_c1", label: "Verify with isolation list", actionId: "verify_with_list", nextStepId: "A3_SWC_Dialogue" },
       { id: "A2_c2", label: "Verify without isolation list", actionId: "verify_without_list", nextStepId: "O2_Incident_Flange_Break" },
@@ -90,7 +90,7 @@ const INITIAL_STEPS: Step[] = [
     personaId: "persona_tom_zev",
     givenResourceIds: ["SWC"],
     hiddenResourceIds: ["LOTO"],
-    flowBehavior: "decision",
+    flowBehavior: "conditional",
     choices: [
       { id: "A4_c1", label: "Catch bleeder gap – stop & correct", actionId: "catch_bleeder", nextStepId: "O1_Safe_Outcome" },
       { id: "A4_c2", label: "Approve without bleeder check", actionId: "approve_no_bleeder", nextStepId: "O2_Incident_Flange_Break" },

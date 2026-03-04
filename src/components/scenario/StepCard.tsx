@@ -13,7 +13,7 @@ export function StepCard({ step, isSelected, onSelect, onRemove }: StepCardProps
   const category = STEP_TYPE_CATEGORY[step.type];
   const badgeClass = CATEGORY_BADGE_CLASS[category];
   const isInterruption = step.type === "interruption";
-  const isDecision = step.flowBehavior === "decision";
+  const isDecision = step.flowBehavior === "conditional";
   const choiceCount = step.choices?.length ?? 0;
   const isIncomplete = isDecision && !isDecisionCheckpointValid(step);
 
