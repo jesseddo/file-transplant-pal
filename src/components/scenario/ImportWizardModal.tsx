@@ -27,6 +27,7 @@ import {
   ImportResult,
 } from "@/lib/excelImporter";
 import { importJson } from "@/lib/jsonImporter";
+import { importDocx } from "@/lib/docxImporter";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ImportWizardModalProps {
@@ -36,7 +37,7 @@ interface ImportWizardModalProps {
 }
 
 type WizardStep = "upload" | "mapping" | "preview";
-type FileFormat = "excel" | "json";
+type FileFormat = "excel" | "json" | "docx";
 
 export function ImportWizardModal({ open, onOpenChange, onImport }: ImportWizardModalProps) {
   const [wizardStep, setWizardStep] = useState<WizardStep>("upload");
@@ -60,6 +61,7 @@ export function ImportWizardModal({ open, onOpenChange, onImport }: ImportWizard
   const handleFileChange = useCallback(async (file: File) => {
     setFileName(file.name);
     const isJson = file.name.endsWith(".json");
+    const isDocx = file.name.endsWith(".docx");
 
     if (isJson) {
       const text = await file.text();
@@ -74,6 +76,12 @@ export function ImportWizardModal({ open, onOpenChange, onImport }: ImportWizard
         setFileFormat("json");
         setWizardStep("preview");
       }
+    } else if (isDocx) {
+      const data = await file.arrayBuffer();
+      const res = await importDocx(data);
+      setFileFormat("docx");
+      setResult(res);
+      setWizardStep("preview");
     } else {
       const data = await file.arrayBuffer();
       const parsed = parseWorkbook(data);
@@ -137,7 +145,7 @@ export function ImportWizardModal({ open, onOpenChange, onImport }: ImportWizard
             <FileSpreadsheet className="w-5 h-5 text-primary" />
             Import Scenario
             <Badge variant="outline" className="ml-2 text-xs font-normal">
-              {fileFormat === "json"
+              {fileFormat === "json" || fileFormat === "docx"
                 ? `Step ${wizardStep === "upload" ? 1 : 2} of 2`
                 : `Step ${wizardStep === "upload" ? 1 : wizardStep === "mapping" ? 2 : 3} of 3`}
             </Badge>
@@ -155,12 +163,12 @@ export function ImportWizardModal({ open, onOpenChange, onImport }: ImportWizard
             <Upload className="w-10 h-10 text-muted-foreground" />
             <div className="text-center">
               <p className="text-sm font-medium text-foreground">Drop your file here</p>
-              <p className="text-xs text-muted-foreground mt-1">or click to browse · .xlsx / .csv / .json</p>
+              <p className="text-xs text-muted-foreground mt-1">or click to browse · .xlsx / .csv / .json / .docx</p>
             </div>
             <input
               id="import-file-input"
               type="file"
-              accept=".xlsx,.xls,.csv,.json"
+              accept=".xlsx,.xls,.csv,.json,.docx"
               className="hidden"
               onChange={handleInputChange}
             />
