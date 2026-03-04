@@ -15,7 +15,40 @@ export type StepType =
   | "decision-checkpoint"
   | "redirect-loop";
 
-export type FlowBehavior = "linear" | "decision";
+export type FlowBehavior = "linear" | "conditional" | "gated" | "interruption" | "timing";
+
+export type EvaluationWeight = "high" | "medium" | "low" | "none";
+
+export interface EvaluationConfig {
+  competencyTags: string[];
+  weight: EvaluationWeight;
+  threshold?: number; // optional pass level 0-100
+}
+
+// Which flow types each step type supports
+export const FLOW_COMPATIBILITY: Record<StepType, FlowBehavior[]> = {
+  video: ["linear", "conditional", "interruption", "timing"],
+  audio: ["linear", "gated", "timing"],
+  pdf: ["linear", "conditional", "gated"],
+  "text-chat": ["linear", "conditional", "gated", "interruption", "timing"],
+  "radio-call": ["linear", "conditional", "gated", "interruption", "timing"],
+  "3d-environment": ["linear", "conditional", "gated", "timing"],
+  "ai-coach": ["linear", "conditional"],
+  "fetch-document": ["linear"],
+  "generate-evaluation": ["linear"],
+  interruption: ["linear"],
+  "parallel-order": ["linear", "timing"],
+  "decision-checkpoint": ["linear", "conditional"],
+  "redirect-loop": ["linear", "conditional"],
+};
+
+export const FLOW_LABELS: Record<FlowBehavior, { label: string; description: string }> = {
+  linear: { label: "Linear", description: "Goes to the next step. Default." },
+  conditional: { label: "Conditional", description: "Branches based on what the learner did or said." },
+  gated: { label: "Gated", description: "Blocks progress until a condition is met." },
+  interruption: { label: "Interruption", description: "A concurrent event that fires on top of the current step." },
+  timing: { label: "Timing Pressure", description: "Silent timer that affects evaluation if the learner takes too long." },
+};
 
 export type StepCategory = "Content" | "Communication" | "Reflection" | "Flow Control" | "Assessment" | "Triggers";
 
@@ -94,6 +127,13 @@ export interface Step {
   routingRules?: RoutingRule[];
   fallbackNextStepId?: string;
   ui?: { position: { x: number; y: number } };
+
+  // Evaluation layer
+  evaluation?: EvaluationConfig;
+
+  // Flow layer extras
+  gateCondition?: string; // for "gated" flow
+  timingPressureSeconds?: number; // for "timing" flow
 
   // Chat-simulation fields
   personaId?: string;
@@ -210,7 +250,7 @@ export const CRITICALITY_LABELS: Record<CriticalityLevel, string> = {
 };
 
 export function isDecisionCheckpointValid(step: Step): boolean {
-  if (step.flowBehavior !== "decision") return true;
+  if (step.flowBehavior !== "conditional") return true;
   const choices = step.choices ?? [];
   if (choices.length === 0) return false;
   return choices.every(c => c.label.trim() !== "" && c.nextStepId.trim() !== "");

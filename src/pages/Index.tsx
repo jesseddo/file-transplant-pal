@@ -67,7 +67,7 @@ const ScenarioEditor = () => {
     const updates: Partial<Step> = {};
     if (scene.personaId) updates.personaId = scene.personaId;
     if (scene.isBranching) {
-      updates.flowBehavior = "decision";
+      updates.flowBehavior = "conditional";
       updates.choices = [
         { id: `${newId}_c1`, label: "Option A", actionId: "option_a", nextStepId: "" },
         { id: `${newId}_c2`, label: "Option B", actionId: "option_b", nextStepId: "" },

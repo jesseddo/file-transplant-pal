@@ -195,7 +195,7 @@ function buildConnections(steps: Step[]): Connection[] {
 
   for (let i = 0; i < flatOrder.length; i++) {
     const step = flatOrder[i];
-    if (step.flowBehavior === "decision" && step.choices && step.choices.length > 0) {
+    if (step.flowBehavior === "conditional" && step.choices && step.choices.length > 0) {
       // Prefer routingRules if defined
       if (step.routingRules && step.routingRules.length > 0) {
         step.routingRules.forEach((rule, idx) => {
@@ -654,7 +654,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
         {steps.map((step) => {
           const pos = positions[step.id];
           if (!pos) return null;
-          const isDecision = step.flowBehavior === "decision";
+          const isDecision = step.flowBehavior === "conditional";
           const isSelected = step.id === selectedStepId;
           const hasInvalidBranch = isDecision && !isDecisionCheckpointValid(step);
           const category = STEP_TYPE_CATEGORY[step.type];
