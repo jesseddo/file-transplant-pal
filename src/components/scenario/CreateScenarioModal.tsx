@@ -9,14 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { FileSpreadsheet, FileJson, Plus } from "lucide-react";
+import { FileSpreadsheet, FileJson, Plus, FileText } from "lucide-react";
 import { CriticalityLevel } from "@/types/workflow";
 import { parseWorkbook, autoDetectMapping, importRows } from "@/lib/excelImporter";
 import { importJson } from "@/lib/jsonImporter";
+import { importDocx } from "@/lib/docxImporter";
 import type { ImportResult } from "@/lib/excelImporter";
 import { cn } from "@/lib/utils";
 
-type ImportSource = "scratch" | "excel" | "json";
+type ImportSource = "scratch" | "excel" | "json" | "docx";
 
 interface CreateScenarioModalProps {
   open: boolean;
@@ -60,6 +61,10 @@ export function CreateScenarioModal({ open, onOpenChange, onCreate }: CreateScen
         const mapping = autoDetectMapping(headers);
         const result = importRows(rows, mapping);
         setImportResult(result);
+      } else if (importSource === "docx") {
+        const buf = await file.arrayBuffer();
+        const result = await importDocx(buf);
+        setImportResult(result);
       } else {
         const text = await file.text();
         const json = JSON.parse(text);
@@ -91,6 +96,7 @@ export function CreateScenarioModal({ open, onOpenChange, onCreate }: CreateScen
   const sourceOptions: { value: ImportSource; label: string; icon: React.ReactNode; desc: string }[] = [
     { value: "scratch", label: "From scratch", icon: <Plus className="w-4 h-4" />, desc: "Empty scenario" },
     { value: "excel", label: "Excel / CSV", icon: <FileSpreadsheet className="w-4 h-4" />, desc: "Import spreadsheet" },
+    { value: "docx", label: "Word", icon: <FileText className="w-4 h-4" />, desc: "Import DOCX file" },
     { value: "json", label: "JSON", icon: <FileJson className="w-4 h-4" />, desc: "Import JSON file" },
   ];
 
@@ -143,7 +149,7 @@ export function CreateScenarioModal({ open, onOpenChange, onCreate }: CreateScen
           {/* Import Source */}
           <div className="space-y-1.5">
             <Label>Import Source</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {sourceOptions.map((opt) => (
                 <button
                   key={opt.value}
@@ -173,13 +179,21 @@ export function CreateScenarioModal({ open, onOpenChange, onCreate }: CreateScen
                 className="w-full text-xs"
                 onClick={() => fileInputRef.current?.click()}
               >
-                {importFileName || `Choose ${importSource === "excel" ? ".xlsx / .csv" : ".json"} file`}
+                {importFileName || `Choose ${
+                  importSource === "excel" ? ".xlsx / .csv" :
+                  importSource === "docx" ? ".docx" :
+                  ".json"
+                } file`}
               </Button>
               <input
                 ref={fileInputRef}
                 type="file"
                 className="hidden"
-                accept={importSource === "excel" ? ".xlsx,.csv,.xls" : ".json"}
+                accept={
+                  importSource === "excel" ? ".xlsx,.csv,.xls" :
+                  importSource === "docx" ? ".docx,.doc" :
+                  ".json"
+                }
                 onChange={handleFileChange}
               />
               {importResult && (
