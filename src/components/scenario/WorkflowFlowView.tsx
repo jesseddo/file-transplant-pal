@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Step, ColumnId, StepType, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid } from "@/types/workflow";
+import { Step, ColumnId, StepType, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid, TrackId } from "@/types/workflow";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, GitBranch, StopCircle, ZoomIn, ZoomOut, Maximize, LayoutGrid, RotateCcw, Settings2, X } from "lucide-react";
+import { AlertTriangle, GitBranch, StopCircle, ZoomIn, ZoomOut, Maximize, LayoutGrid, RotateCcw, Settings2, X, Zap, CornerDownLeft, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { EditLogicModal } from "@/components/scenario/EditLogicModal";
@@ -20,7 +20,7 @@ interface WorkflowFlowViewProps {
 interface Connection {
   fromId: string;
   toId: string | "__end__";
-  type: "linear" | "branch";
+  type: "linear" | "branch" | "interruption" | "resume";
   label?: string;
   color?: string;
   branchIndex?: number;
@@ -37,9 +37,11 @@ interface EndNodeInfo {
 const COLUMN_ORDER: ColumnId[] = ["intro", "simulation", "review"];
 const LANE_X_START = 80;
 const LANE_Y_START = 60;
-const COLUMN_GAP = 200; // gap between column groups
-const NODE_X_GAP = 320; // horizontal gap between nodes within main path
-const NODE_Y_GAP = 200; // vertical gap between rows
+const COLUMN_GAP = 200;
+const NODE_X_GAP = 320;
+const NODE_Y_GAP = 200;
+const TRACK_HORIZONTAL_GAP = 400;
+const TRACK_LABEL_HEIGHT = 40;
 
 const BRANCH_COLORS = [
   "hsl(var(--primary))",
@@ -58,14 +60,30 @@ const BRANCH_HANDLE_SPACING = 16;
 // Top offset for first branch handle (below badge row)
 const BRANCH_HANDLE_TOP_START = 52;
 
+const INTERRUPTION_COLOR = "hsl(30, 90%, 50%)";
+const RESUME_COLOR = "hsl(140, 60%, 45%)";
+
+function getTrackXOffset(trackId: TrackId | undefined, hasParallelTrack: boolean): number {
+  if (!trackId || trackId === "main") return 0;
+  if (trackId === "parallel-1" && hasParallelTrack) return TRACK_HORIZONTAL_GAP;
+  return 0;
+}
+
 function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
   const positions: Record<string, { x: number; y: number }> = {};
   if (steps.length === 0) return positions;
 
-  // Group by column, sorted by order
+  const hasParallelTrack = steps.some(s => s.trackId === "parallel-1");
+
   const byCol: Record<ColumnId, Step[]> = { intro: [], simulation: [], review: [] };
   steps.forEach((s) => byCol[s.column].push(s));
   Object.values(byCol).forEach((arr) => arr.sort((a, b) => a.order - b.order));
+
+  const byTrack: Record<TrackId, Step[]> = { "main": [], "parallel-1": [] };
+  steps.forEach((s) => {
+    const track = s.trackId || "main";
+    byTrack[track].push(s);
+  });
 
   // Build connections to understand the graph
   const conns = buildConnections(steps);
@@ -120,9 +138,10 @@ function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
 
   mainSteps.forEach((step) => {
     if (lastCol !== null && step.column !== lastCol) {
-      xCursor += COLUMN_GAP; // extra gap between phase columns
+      xCursor += COLUMN_GAP;
     }
-    positions[step.id] = { x: xCursor, y: LANE_Y_START };
+    const trackOffset = getTrackXOffset(step.trackId, hasParallelTrack);
+    positions[step.id] = { x: xCursor + trackOffset, y: LANE_Y_START + TRACK_LABEL_HEIGHT };
     lastCol = step.column;
 
     // Reserve extra horizontal space for decision nodes with off-path branches
@@ -142,13 +161,14 @@ function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
   Object.entries(decisionBranches).forEach(([sourceId, targets]) => {
     const sourcePos = positions[sourceId];
     if (!sourcePos) return;
-    // Fan branches horizontally below the source, centered under it
     const totalWidth = (targets.length - 1) * NODE_X_GAP;
     const startX = sourcePos.x - totalWidth / 2;
     targets.forEach((targetId, idx) => {
       if (positions[targetId]) return;
+      const targetStep = steps.find(s => s.id === targetId);
+      const trackOffset = getTrackXOffset(targetStep?.trackId, hasParallelTrack);
       positions[targetId] = {
-        x: startX + idx * NODE_X_GAP,
+        x: startX + idx * NODE_X_GAP + trackOffset,
         y: sourcePos.y + NODE_Y_GAP,
       };
     });
@@ -156,7 +176,7 @@ function autoPosition(steps: Step[]): Record<string, { x: number; y: number }> {
 
   // Any remaining steps not yet positioned (orphans) — stack below everything
   const allYValues = Object.values(positions).map((p) => p.y);
-  let orphanY = allYValues.length > 0 ? Math.max(...allYValues) + NODE_Y_GAP : LANE_Y_START + NODE_Y_GAP * 2;
+  const orphanY = allYValues.length > 0 ? Math.max(...allYValues) + NODE_Y_GAP : LANE_Y_START + NODE_Y_GAP * 2;
   let orphanX = LANE_X_START;
   flatOrder.forEach((step) => {
     if (!positions[step.id]) {
@@ -192,6 +212,34 @@ function buildConnections(steps: Step[]): Connection[] {
   steps.forEach((s) => sortedByColumn[s.column].push(s));
   Object.values(sortedByColumn).forEach((arr) => arr.sort((a, b) => a.order - b.order));
   const flatOrder = COLUMN_ORDER.flatMap((col) => sortedByColumn[col]);
+
+  steps.forEach((step) => {
+    if (step.type === "interruption" && step.choices && step.choices.length > 0) {
+      step.choices.forEach((choice, idx) => {
+        if (choice.nextStepId && choice.nextStepId !== "__end__" && choice.nextStepId !== "__none__") {
+          connections.push({
+            fromId: step.id,
+            toId: choice.nextStepId,
+            type: "interruption",
+            label: choice.label || "Interrupt",
+            color: INTERRUPTION_COLOR,
+            branchIndex: idx,
+            branchTotal: step.choices!.length,
+          });
+        }
+      });
+    }
+
+    if (step.type === "resume-point" && step.resumeTargetStepId) {
+      connections.push({
+        fromId: step.id,
+        toId: step.resumeTargetStepId,
+        type: "resume",
+        label: "Resume",
+        color: RESUME_COLOR,
+      });
+    }
+  });
 
   for (let i = 0; i < flatOrder.length; i++) {
     const step = flatOrder[i];
@@ -370,6 +418,7 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
         hasAutoFitted.current = true;
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [positions]);
 
   // Space key listener
@@ -596,8 +645,18 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
     const x2 = inp.x;
     const y2 = inp.y;
 
-    const strokeColor = conn.type === "branch" ? (conn.color || "hsl(var(--primary))") : "hsl(var(--muted-foreground) / 0.35)";
-    const sw = conn.type === "branch" ? 2 : 1.5;
+    let strokeColor = "hsl(var(--muted-foreground) / 0.35)";
+    let sw = 1.5;
+    if (conn.type === "branch") {
+      strokeColor = conn.color || "hsl(var(--primary))";
+      sw = 2;
+    } else if (conn.type === "interruption") {
+      strokeColor = INTERRUPTION_COLOR;
+      sw = 2.5;
+    } else if (conn.type === "resume") {
+      strokeColor = RESUME_COLOR;
+      sw = 2.5;
+    }
 
     const offset = Math.min(120, Math.max(60, Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) * 0.3));
     const cp1 = controlPoint(x1, y1, out.direction, offset);
@@ -629,6 +688,8 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
   const svgW = allPos.length > 0 ? Math.max(...allPos.map((p) => p.x)) + NODE_W + 200 : 2000;
   const svgH = allPos.length > 0 ? Math.max(...allPos.map((p) => p.y)) + NODE_H + 200 : 1000;
 
+  const hasParallelTrack = steps.some(s => s.trackId === "parallel-1");
+
   return (
     <div
       ref={containerRef}
@@ -645,6 +706,34 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
           height: svgH,
         }}
       >
+        {/* Track Headers */}
+        {hasParallelTrack && (
+          <>
+            <div
+              className="absolute flex items-center gap-2 px-3 py-1.5 bg-card/80 border border-border rounded-md backdrop-blur-sm"
+              style={{
+                left: LANE_X_START,
+                top: LANE_Y_START,
+                zIndex: 5,
+              }}
+            >
+              <div className="w-2 h-2 rounded-full bg-primary" />
+              <span className="text-xs font-medium text-foreground">Main Flow</span>
+            </div>
+            <div
+              className="absolute flex items-center gap-2 px-3 py-1.5 bg-card/80 border border-border rounded-md backdrop-blur-sm"
+              style={{
+                left: LANE_X_START + TRACK_HORIZONTAL_GAP,
+                top: LANE_Y_START,
+                zIndex: 5,
+              }}
+            >
+              <Zap className="w-3 h-3 text-orange-500" />
+              <span className="text-xs font-medium text-foreground">Interruption Track</span>
+            </div>
+          </>
+        )}
+
         {/* SVG connections */}
         <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 1, width: svgW, height: svgH }}>
           {svgElements}
@@ -659,6 +748,9 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
           const hasInvalidBranch = isDecision && !isDecisionCheckpointValid(step);
           const category = STEP_TYPE_CATEGORY[step.type];
           const badgeClass = CATEGORY_BADGE_CLASS[category];
+          const isSuspended = step.state === "suspended";
+          const isInterruption = step.type === "interruption";
+          const isResumePoint = step.type === "resume-point";
 
           return (
             <div
@@ -670,7 +762,10 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
                 step.column === "review" && "border-l-[hsl(var(--column-header-review))]",
                 isSelected && "ring-2 ring-primary",
                 hasInvalidBranch && "border-l-[3px] border-l-destructive ring-1 ring-destructive/30",
-                dragging?.stepId === step.id && "cursor-grabbing shadow-lg"
+                dragging?.stepId === step.id && "cursor-grabbing shadow-lg",
+                isSuspended && "opacity-60 border-dashed",
+                isInterruption && "border-l-[3px] border-l-orange-500",
+                isResumePoint && "border-l-[3px] border-l-green-500"
               )}
               style={{
                 left: pos.x,
@@ -711,16 +806,29 @@ export function WorkflowFlowView({ steps, selectedStepId, onSelectStep, onUpdate
 
               <div className="flex items-center gap-2 mb-1.5">
                 {isDecision && <GitBranch className="w-3.5 h-3.5 text-primary shrink-0" />}
+                {isInterruption && <Zap className="w-3.5 h-3.5 text-orange-500 shrink-0" />}
+                {isResumePoint && <CornerDownLeft className="w-3.5 h-3.5 text-green-500 shrink-0" />}
+                {isSuspended && <Pause className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
                 <span className="text-sm font-medium text-foreground truncate">{step.title}</span>
                 {hasInvalidBranch && <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />}
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <Badge className={cn("text-[10px] px-1.5 py-0 h-4 border-none", badgeClass)}>
                   {STEP_TYPE_LABELS[step.type]}
                 </Badge>
                 {isDecision && (
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
                     {step.choices?.length ?? 0} branches
+                  </Badge>
+                )}
+                {isSuspended && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-muted-foreground/50 text-muted-foreground">
+                    Suspended
+                  </Badge>
+                )}
+                {step.trackId === "parallel-1" && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-orange-500/50 text-orange-600">
+                    Parallel Track
                   </Badge>
                 )}
               </div>

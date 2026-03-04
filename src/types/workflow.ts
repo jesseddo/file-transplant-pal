@@ -13,7 +13,8 @@ export type StepType =
   | "parallel-order"
   | "3d-environment"
   | "decision-checkpoint"
-  | "redirect-loop";
+  | "redirect-loop"
+  | "resume-point";
 
 export type FlowBehavior = "linear" | "conditional" | "gated" | "interruption" | "timing";
 
@@ -40,6 +41,7 @@ export const FLOW_COMPATIBILITY: Record<StepType, FlowBehavior[]> = {
   "parallel-order": ["linear", "timing"],
   "decision-checkpoint": ["linear", "conditional"],
   "redirect-loop": ["linear", "conditional"],
+  "resume-point": ["linear"],
 };
 
 export const FLOW_LABELS: Record<FlowBehavior, { label: string; description: string }> = {
@@ -115,6 +117,10 @@ export interface RoutingRule {
   nextStepId: string;
 }
 
+export type TrackId = "main" | "parallel-1";
+
+export type StepState = "active" | "suspended" | "resumable";
+
 export interface Step {
   id: string;
   title: string;
@@ -127,6 +133,12 @@ export interface Step {
   routingRules?: RoutingRule[];
   fallbackNextStepId?: string;
   ui?: { position: { x: number; y: number } };
+
+  // Track and interruption support
+  trackId?: TrackId;
+  state?: StepState;
+  interruptionTriggerId?: string;
+  resumeTargetStepId?: string;
 
   // Evaluation layer
   evaluation?: EvaluationConfig;
@@ -160,6 +172,7 @@ export const ACTION_TILES: ActionTile[] = [
   // Flow Control
   { type: "decision-checkpoint", label: "Decision Point", category: "Flow Control", icon: "GitMerge", isMechanic: true },
   { type: "redirect-loop", label: "Redirect / Loop", category: "Flow Control", icon: "RotateCcw", isMechanic: true },
+  { type: "resume-point", label: "Resume Point", category: "Flow Control", icon: "CornerDownLeft", isMechanic: true },
   // Assessment
   { type: "fetch-document", label: "Fetch Document", category: "Assessment", icon: "Download", isMechanic: true },
   { type: "generate-evaluation", label: "Evaluation Report", category: "Assessment", icon: "ClipboardCheck", isMechanic: true },
@@ -182,6 +195,7 @@ export const STEP_TYPE_LABELS: Record<StepType, string> = {
   "3d-environment": "3D Environment",
   "decision-checkpoint": "Decision",
   "redirect-loop": "Redirect",
+  "resume-point": "Resume Point",
 };
 
 export const STEP_TYPE_CATEGORY: Record<StepType, StepCategory> = {
@@ -198,6 +212,7 @@ export const STEP_TYPE_CATEGORY: Record<StepType, StepCategory> = {
   "parallel-order": "Triggers",
   "decision-checkpoint": "Flow Control",
   "redirect-loop": "Flow Control",
+  "resume-point": "Flow Control",
 };
 
 export const STEP_IS_MECHANIC: Record<StepType, boolean> = {
@@ -214,6 +229,7 @@ export const STEP_IS_MECHANIC: Record<StepType, boolean> = {
   "parallel-order": true,
   "decision-checkpoint": true,
   "redirect-loop": true,
+  "resume-point": true,
 };
 
 export const CATEGORY_BADGE_CLASS: Record<StepCategory, string> = {

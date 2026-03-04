@@ -2,13 +2,9 @@ import {
   Step, BranchChoice, SimTask, Persona, Scene,
   STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, STEP_IS_MECHANIC, CATEGORY_BADGE_CLASS,
   isDecisionCheckpointValid, FlowBehavior, FLOW_COMPATIBILITY, FLOW_LABELS,
-  EvaluationWeight,
+  EvaluationWeight, TrackId,
 } from "@/types/workflow";
-import {
-  X, Plus, Trash2, AlertCircle, ChevronDown, ChevronRight,
-  Eye, EyeOff, User, MessageSquare, ListChecks, FileText,
-  Settings2, BarChart3, GitBranch, Lock, Zap, Timer,
-} from "lucide-react";
+import { X, Plus, Trash2, CircleAlert as AlertCircle, ChevronDown, ChevronRight, Eye, EyeOff, User, MessageSquare, ListChecks, FileText, Settings2, ChartBar as BarChart3, GitBranch, Lock, Zap, Timer } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -570,6 +566,59 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
                 );
               })}
             </RadioGroup>
+
+            {/* Track Assignment */}
+            {step.column === "simulation" && (
+              <div className="space-y-2">
+                <Label className="text-xs font-bold flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5" />
+                  Track Assignment
+                </Label>
+                <p className="text-[11px] text-muted-foreground -mt-1">
+                  Place this step in the main flow or parallel interruption track.
+                </p>
+                <RadioGroup
+                  value={step.trackId || "main"}
+                  onValueChange={(v) => onUpdate(step.id, { trackId: v as TrackId })}
+                  className="gap-2"
+                >
+                  <div className="flex items-center gap-2.5 p-2 rounded-lg border border-border">
+                    <RadioGroupItem value="main" id="track-main" />
+                    <Label htmlFor="track-main" className="text-xs cursor-pointer flex-1">
+                      Main Flow
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2.5 p-2 rounded-lg border border-orange-500/30 bg-orange-500/5">
+                    <RadioGroupItem value="parallel-1" id="track-parallel" />
+                    <Label htmlFor="track-parallel" className="text-xs cursor-pointer flex-1">
+                      Parallel / Interruption Track
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            )}
+
+            {/* Resume Target (for resume-point steps) */}
+            {step.type === "resume-point" && (
+              <div className="space-y-2">
+                <Label className="text-xs font-bold">Resume Target</Label>
+                <p className="text-[11px] text-muted-foreground -mt-1">
+                  Which step in the main flow should this resume to?
+                </p>
+                <select
+                  value={step.resumeTargetStepId || ""}
+                  onChange={(e) => onUpdate(step.id, { resumeTargetStepId: e.target.value || undefined })}
+                  className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+                >
+                  <option value="">— Select main flow step —</option>
+                  {allSteps
+                    .filter(s => s.column === "simulation" && s.trackId !== "parallel-1" && s.id !== step.id)
+                    .map(s => (
+                      <option key={s.id} value={s.id}>{s.title} ({STEP_TYPE_LABELS[s.type]})</option>
+                    ))}
+                </select>
+              </div>
+            )}
 
             {/* Conditional: branch choices */}
             {isConditional && (
