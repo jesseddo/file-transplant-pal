@@ -346,8 +346,8 @@ export function WorkflowCanvas({
                           ? "border-destructive/40 bg-destructive/5 border-dashed"
                           : "border-primary/40 bg-primary/5 border-dashed"
                         : "border-dashed border-border/30"
-                    } ${isHovered && !gridDropTarget.isValid ? "bg-destructive/10 border-destructive" : ""} ${
-                      isHovered && gridDropTarget.isValid ? "bg-primary/10 border-primary" : ""
+                    } ${isHovered && gridDropTarget && !gridDropTarget.isValid ? "bg-destructive/10 border-destructive" : ""} ${
+                      isHovered && gridDropTarget && gridDropTarget.isValid ? "bg-primary/10 border-primary" : ""
                     }`}
                     style={{
                       left: `${col * (GRID_CELL_WIDTH + GRID_GAP)}px`,
