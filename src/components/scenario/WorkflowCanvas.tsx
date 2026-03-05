@@ -152,7 +152,7 @@ function SimulationGridArrows({ steps }: { steps: Step[] }) {
   if (arrows.length === 0) return null;
 
   return (
-    <svg className="absolute inset-0 pointer-events-none z-10" style={{ overflow: "visible" }}>
+    <svg className="absolute inset-0 pointer-events-none z-[15]" style={{ overflow: "visible" }}>
       <defs>
         <marker id="arrow-linear" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
           <path d="M 0 0 L 8 3 L 0 6 Z" fill={CONNECTION_TYPE_COLORS.linear} />
