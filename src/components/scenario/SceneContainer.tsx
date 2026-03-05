@@ -11,9 +11,6 @@ interface SceneContainerProps {
   onRemoveStep: (id: string) => void;
   onRenameScene: (sceneId: string, title: string) => void;
   onRemoveScene: (sceneId: string) => void;
-  onDragOverSide?: (side: 'left' | 'right') => void;
-  onDragLeaveSide?: () => void;
-  onDropOnSide?: (side: 'left' | 'right', e: DragEvent) => void;
   showLeftDropZone?: boolean;
   showRightDropZone?: boolean;
 }
@@ -26,9 +23,6 @@ export function SceneContainer({
   onRemoveStep,
   onRenameScene,
   onRemoveScene,
-  onDragOverSide,
-  onDragLeaveSide,
-  onDropOnSide,
   showLeftDropZone,
   showRightDropZone,
 }: SceneContainerProps) {
@@ -45,58 +39,23 @@ export function SceneContainer({
     }
   };
 
-  const handleDragOverLeft = (e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDragOverSide?.('left');
-  };
-
-  const handleDragOverRight = (e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDragOverSide?.('right');
-  };
-
-  const handleDragLeave = (e: DragEvent) => {
-    e.stopPropagation();
-    onDragLeaveSide?.();
-  };
-
-  const handleDropLeft = (e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDropOnSide?.('left', e);
-  };
-
-  const handleDropRight = (e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDropOnSide?.('right', e);
-  };
-
   return (
     <div className="relative" data-scene-id={scene.id}>
       {/* Left drop zone */}
       {showLeftDropZone && (
         <div
-          className="absolute left-0 top-0 bottom-0 w-8 -ml-4 bg-primary/20 border-2 border-primary rounded-lg z-10 flex items-center justify-center"
-          onDragOver={handleDragOverLeft}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDropLeft}
+          className="absolute left-0 top-0 bottom-0 w-12 -ml-6 bg-primary/30 border-2 border-dashed border-primary rounded-lg z-50 flex items-center justify-center pointer-events-none"
         >
-          <div className="w-1 h-16 bg-primary rounded-full" />
+          <div className="w-2 h-20 bg-primary rounded-full shadow-lg" />
         </div>
       )}
 
       {/* Right drop zone */}
       {showRightDropZone && (
         <div
-          className="absolute right-0 top-0 bottom-0 w-8 -mr-4 bg-primary/20 border-2 border-primary rounded-lg z-10 flex items-center justify-center"
-          onDragOver={handleDragOverRight}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDropRight}
+          className="absolute right-0 top-0 bottom-0 w-12 -mr-6 bg-primary/30 border-2 border-dashed border-primary rounded-lg z-50 flex items-center justify-center pointer-events-none"
         >
-          <div className="w-1 h-16 bg-primary rounded-full" />
+          <div className="w-2 h-20 bg-primary rounded-full shadow-lg" />
         </div>
       )}
 

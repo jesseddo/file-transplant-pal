@@ -261,6 +261,40 @@ export function WorkflowCanvas({
   const handleDragOver = useCallback((e: DragEvent, col: ColumnId) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (col === "simulation") {
+      const container = e.currentTarget as HTMLElement;
+      const sceneContainers = Array.from(container.querySelectorAll("[data-scene-id]"));
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      for (const sceneEl of sceneContainers) {
+        const sceneRect = sceneEl.getBoundingClientRect();
+        if (mouseX >= sceneRect.left - 30 && mouseX <= sceneRect.right + 30 &&
+            mouseY >= sceneRect.top && mouseY <= sceneRect.bottom) {
+
+          const sceneId = sceneEl.getAttribute("data-scene-id");
+          if (!sceneId) continue;
+
+          const leftEdge = sceneRect.left;
+          const rightEdge = sceneRect.right;
+          const edgeThreshold = 40;
+
+          if (mouseX < leftEdge + edgeThreshold) {
+            setSideDropTarget({ sceneId, side: 'left' });
+            setDropTarget(null);
+            return;
+          } else if (mouseX > rightEdge - edgeThreshold) {
+            setSideDropTarget({ sceneId, side: 'right' });
+            setDropTarget(null);
+            return;
+          }
+        }
+      }
+
+      setSideDropTarget(null);
+    }
+
     const { index } = getDropInfo(e, col);
     setDropTarget({ col, index });
   }, [getDropInfo]);
@@ -268,6 +302,12 @@ export function WorkflowCanvas({
   const handleDrop = useCallback((e: DragEvent, col: ColumnId) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (sideDropTarget) {
+      handleSceneSideDrop(sideDropTarget.sceneId, sideDropTarget.side, e);
+      return;
+    }
+
     const actionType = e.dataTransfer.getData("application/action-type");
     const actionLabel = e.dataTransfer.getData("application/action-label");
     const { index, sceneId } = getDropInfo(e, col);
@@ -282,7 +322,7 @@ export function WorkflowCanvas({
     }
     onSelectColumn(col);
     setDropTarget(null);
-  }, [getDropInfo, onMoveStep, onSelectColumn, onAddStepToColumn]);
+  }, [sideDropTarget, handleSceneSideDrop, getDropInfo, onMoveStep, onSelectColumn, onAddStepToColumn]);
 
   const handleDragLeave = useCallback(() => {
     setDropTarget(null);
@@ -462,9 +502,6 @@ export function WorkflowCanvas({
                         onRemoveStep={onRemoveStep}
                         onRenameScene={onRenameScene}
                         onRemoveScene={onRemoveScene}
-                        onDragOverSide={(side) => handleSceneSideDragOver(scene.id, side)}
-                        onDragLeaveSide={handleSceneSideDragLeave}
-                        onDropOnSide={(side, e) => handleSceneSideDrop(scene.id, side, e)}
                         showLeftDropZone={sideDropTarget?.sceneId === scene.id && sideDropTarget?.side === 'left'}
                         showRightDropZone={sideDropTarget?.sceneId === scene.id && sideDropTarget?.side === 'right'}
                       />
