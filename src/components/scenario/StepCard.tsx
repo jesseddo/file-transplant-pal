@@ -1,4 +1,4 @@
-import { X, GripVertical, AlertCircle, GitFork } from "lucide-react";
+import { X, GripVertical, CircleAlert as AlertCircle, GitFork } from "lucide-react";
 import { Step, STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, CATEGORY_BADGE_CLASS, isDecisionCheckpointValid } from "@/types/workflow";
 import { DragEvent } from "react";
 
