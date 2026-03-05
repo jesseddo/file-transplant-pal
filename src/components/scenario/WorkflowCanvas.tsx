@@ -281,10 +281,12 @@ export function WorkflowCanvas({
           const edgeThreshold = 40;
 
           if (mouseX < leftEdge + edgeThreshold) {
+            console.log('[Horizontal Drop] Left edge detected for scene:', sceneId);
             setSideDropTarget({ sceneId, side: 'left' });
             setDropTarget(null);
             return;
           } else if (mouseX > rightEdge - edgeThreshold) {
+            console.log('[Horizontal Drop] Right edge detected for scene:', sceneId);
             setSideDropTarget({ sceneId, side: 'right' });
             setDropTarget(null);
             return;
@@ -339,21 +341,29 @@ export function WorkflowCanvas({
   }, []);
 
   const handleSceneSideDrop = useCallback((sceneId: string, side: 'left' | 'right', dragEvent: DragEvent) => {
+    console.log('[Horizontal Drop] Drop triggered on', side, 'of scene:', sceneId);
     const actionType = dragEvent.dataTransfer.getData("application/action-type");
     const actionLabel = dragEvent.dataTransfer.getData("application/action-label");
     const stepId = dragEvent.dataTransfer.getData("text/plain");
 
+    console.log('[Horizontal Drop] Drag data:', { actionType, actionLabel, stepId });
+
     if (!actionType && !stepId) {
+      console.log('[Horizontal Drop] No valid drag data, aborting');
       setSideDropTarget(null);
       return;
     }
 
+    console.log('[Horizontal Drop] Creating new scene...');
     const newSceneId = onInsertScene(`New Scene`, sceneId, side);
+    console.log('[Horizontal Drop] New scene created:', newSceneId);
 
     setTimeout(() => {
       if (actionType && actionLabel) {
+        console.log('[Horizontal Drop] Adding action step to new scene');
         onAddStepToColumn(actionType as StepType, actionLabel, "simulation", 0, newSceneId);
       } else if (stepId) {
+        console.log('[Horizontal Drop] Moving existing step to new scene');
         onMoveStep(stepId, "simulation", 0, newSceneId);
       }
     }, 50);
