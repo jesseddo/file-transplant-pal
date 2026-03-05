@@ -1,15 +1,5 @@
 import { useState, useCallback } from "react";
-import { Step, ColumnId, StepType, SimTask, Scene } from "@/types/workflow";
-
-export const INITIAL_SCENES: Scene[] = [
-  { id: "scene_A1", title: "Remote Approval Request", order: 0 },
-  { id: "scene_A2", title: "Perform Walkdown", order: 1 },
-  { id: "scene_A3", title: "SWC Dialogue", order: 2 },
-  { id: "scene_A4", title: "Zero Energy Verification", order: 3 },
-  { id: "scene_O1", title: "Safe Outcome", order: 4 },
-  { id: "scene_O2", title: "Incident: Flange Break", order: 5 },
-  { id: "scene_O3", title: "Incident: Valve Blowby", order: 6 },
-];
+import { Step, ColumnId, StepType, SimTask } from "@/types/workflow";
 
 const INITIAL_STEPS: Step[] = [
   // ── Intro column: scene resources ──
@@ -25,7 +15,6 @@ const INITIAL_STEPS: Step[] = [
     type: "text-chat",
     column: "simulation",
     order: 0,
-    sceneId: "scene_A1",
     personaId: "persona_mike",
     flowBehavior: "conditional",
     choices: [
@@ -43,7 +32,6 @@ const INITIAL_STEPS: Step[] = [
     type: "interruption",
     column: "simulation",
     order: 1,
-    sceneId: "scene_A1",
     tasks: [
       { id: "A1B_T1", description: "Redirect the learner back to proper approval flow.", completionCriteria: "Learner is redirected to the approval request.", isHidden: false, nextNodeId: "A1_Remote_Approval_Request" },
     ],
@@ -54,7 +42,6 @@ const INITIAL_STEPS: Step[] = [
     type: "text-chat",
     column: "simulation",
     order: 2,
-    sceneId: "scene_A2",
     personaId: "persona_tom",
     givenResourceIds: ["SWC"],
     flowBehavior: "conditional",
@@ -73,7 +60,6 @@ const INITIAL_STEPS: Step[] = [
     type: "text-chat",
     column: "simulation",
     order: 3,
-    sceneId: "scene_A3",
     personaId: "persona_tom_swc",
     givenResourceIds: ["SWC"],
     tasks: [
@@ -86,7 +72,6 @@ const INITIAL_STEPS: Step[] = [
     type: "text-chat",
     column: "simulation",
     order: 4,
-    sceneId: "scene_A4",
     personaId: "persona_tom_zev",
     givenResourceIds: ["SWC"],
     hiddenResourceIds: ["LOTO"],
@@ -109,7 +94,6 @@ const INITIAL_STEPS: Step[] = [
     type: "fetch-document",
     column: "simulation",
     order: 5,
-    sceneId: "scene_O1",
     tasks: [
       { id: "O1_T1", description: "Proceed with work only after zero energy is proven and start work expectations are aligned.", completionCriteria: "Learner states conditions met and authorizes proceed with closed-loop confirmation.", isHidden: false, nextNodeId: "D1_Debrief_Safe" },
     ],
@@ -120,7 +104,6 @@ const INITIAL_STEPS: Step[] = [
     type: "interruption",
     column: "simulation",
     order: 6,
-    sceneId: "scene_O2",
     personaId: "persona_tom_incident",
     tasks: [
       { id: "O2_T1", description: "Confirm evacuation/accountability and initiate immediate controls.", completionCriteria: "Learner confirms evacuation/accountability, communicates immediate controls, uses closed-loop communication.", isHidden: false, nextNodeId: "D2_Debrief_Incident" },
@@ -132,7 +115,6 @@ const INITIAL_STEPS: Step[] = [
     type: "interruption",
     column: "simulation",
     order: 7,
-    sceneId: "scene_O3",
     tasks: [
       { id: "O3_T1", description: "Valve blowby. Residual pressure/gas releases.", completionCriteria: "Learner confirms valve blowby, communicates immediate controls.", isHidden: false, nextNodeId: "D2_Debrief_Incident" },
     ],
@@ -194,15 +176,12 @@ export function useWorkflow(initialSteps?: Step[]) {
     setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, ...updates } : s)));
   }, []);
 
-  const addStepToColumn = useCallback((type: StepType, title: string, column: ColumnId, index: number, sceneId?: string): string => {
+  const addStepToColumn = useCallback((type: StepType, title: string, column: ColumnId, index: number): string => {
     const id = `s${nextId++}`;
     setSteps((prev) => {
       const colSteps = prev.filter((s) => s.column === column).sort((a, b) => a.order - b.order);
       const clampedIndex = Math.max(0, Math.min(index, colSteps.length));
       const newStep: Step = { id, title, type, column, order: clampedIndex };
-      if (sceneId) {
-        newStep.sceneId = sceneId;
-      }
       colSteps.splice(clampedIndex, 0, newStep);
       colSteps.forEach((s, i) => (s.order = i));
       const otherSteps = prev.filter((s) => s.column !== column);
@@ -212,7 +191,7 @@ export function useWorkflow(initialSteps?: Step[]) {
     return id;
   }, []);
 
-  const moveStep = useCallback((stepId: string, toColumn: ColumnId, toIndex: number, sceneId?: string) => {
+  const moveStep = useCallback((stepId: string, toColumn: ColumnId, toIndex: number) => {
     setSteps((prev) => {
       const step = prev.find((s) => s.id === stepId);
       if (!step) return prev;
@@ -220,9 +199,6 @@ export function useWorkflow(initialSteps?: Step[]) {
       const targetColSteps = withoutStep.filter((s) => s.column === toColumn).sort((a, b) => a.order - b.order);
       const clampedIndex = Math.max(0, Math.min(toIndex, targetColSteps.length));
       const movedStep = { ...step, column: toColumn };
-      if (sceneId !== undefined) {
-        movedStep.sceneId = sceneId;
-      }
       targetColSteps.splice(clampedIndex, 0, movedStep);
       targetColSteps.forEach((s, i) => (s.order = i));
       const sourceColSteps = toColumn !== step.column

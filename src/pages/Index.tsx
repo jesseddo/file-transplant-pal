@@ -7,7 +7,6 @@ import { ActionsPanel } from "@/components/scenario/ActionsPanel";
 import { InspectorPanel } from "@/components/scenario/InspectorPanel";
 import { WorkflowFlowView } from "@/components/scenario/WorkflowFlowView";
 import { ImportWizardModal } from "@/components/scenario/ImportWizardModal";
-import { AddSceneModal } from "@/components/scenario/AddSceneModal";
 import { useWorkflow } from "@/hooks/useWorkflow";
 import { usePersonas } from "@/hooks/usePersonas";
 import { useScenarios } from "@/hooks/useScenarios";
@@ -15,9 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { buildExportPayload, downloadJson } from "@/lib/scenarioExporter";
 import { useToast } from "@/hooks/use-toast";
 import type { ImportResult } from "@/lib/excelImporter";
-import type { Step, Scene } from "@/types/workflow";
-
-let sceneNextId = 1000;
+import type { Step } from "@/types/workflow";
 
 const ScenarioEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,17 +24,15 @@ const ScenarioEditor = () => {
 
   const wf = useWorkflow(scenario?.steps);
   const { personas, importPersonas, setPersonas } = usePersonas(scenario?.personas);
-  const [scenes, setScenes] = useState<Scene[]>(scenario?.scenes ?? []);
   const [activeTab, setActiveTab] = useState("design");
   const [importOpen, setImportOpen] = useState(false);
-  const [addSceneOpen, setAddSceneOpen] = useState(false);
   const { toast } = useToast();
 
   // Sync changes back to scenario storage
   useEffect(() => {
     if (!id) return;
-    updateScenario(id, { steps: wf.steps, personas, scenes });
-  }, [wf.steps, personas, scenes, id, updateScenario]);
+    updateScenario(id, { steps: wf.steps, personas });
+  }, [wf.steps, personas, id, updateScenario]);
 
   // Redirect if scenario not found
   useEffect(() => {
@@ -53,34 +48,6 @@ const ScenarioEditor = () => {
     });
   }, [wf.importSteps, importPersonas, toast]);
 
-  const handleAddScene = useCallback((scene: {
-    title: string;
-    type: import("@/types/workflow").StepType;
-    column: import("@/types/workflow").ColumnId;
-    personaId?: string;
-    openingLine: string;
-    isBranching: boolean;
-  }) => {
-    const colSteps = wf.steps.filter((s) => s.column === scene.column);
-    const newId = wf.addStepToColumn(scene.type, scene.title, scene.column, colSteps.length);
-
-    const updates: Partial<Step> = {};
-    if (scene.personaId) updates.personaId = scene.personaId;
-    if (scene.isBranching) {
-      updates.flowBehavior = "conditional";
-      updates.choices = [
-        { id: `${newId}_c1`, label: "Option A", actionId: "option_a", nextStepId: "" },
-        { id: `${newId}_c2`, label: "Option B", actionId: "option_b", nextStepId: "" },
-      ];
-    }
-    updates.tasks = [{
-      id: `${newId}_T1`,
-      description: scene.openingLine,
-      completionCriteria: "",
-      isHidden: false,
-    }];
-    wf.updateStep(newId, updates);
-  }, [wf]);
 
   const handleExport = useCallback(() => {
     const payload = buildExportPayload(wf.steps, personas);
@@ -120,7 +87,6 @@ const ScenarioEditor = () => {
           <div className="flex-1 flex min-h-0 overflow-hidden">
             <WorkflowCanvas
               steps={wf.steps}
-              scenes={scenes}
               selectedStepId={wf.selectedStepId}
               selectedColumn={wf.selectedColumn}
               onSelectStep={wf.setSelectedStepId}
@@ -128,34 +94,6 @@ const ScenarioEditor = () => {
               onRemoveStep={wf.removeStep}
               onMoveStep={wf.moveStep}
               onAddStepToColumn={wf.addStepToColumn}
-              onAddScene={(title) => {
-                const newScene: Scene = { id: `scene_${sceneNextId++}`, title, order: scenes.length };
-                setScenes(prev => [...prev, newScene]);
-              }}
-              onInsertScene={(title, afterSceneId, side) => {
-                const sortedScenes = [...scenes].sort((a, b) => a.order - b.order);
-                const sceneIndex = sortedScenes.findIndex(s => s.id === afterSceneId);
-                const insertIndex = side === 'left' ? sceneIndex : sceneIndex + 1;
-
-                const newSceneId = `scene_${sceneNextId++}`;
-                const newScene: Scene = { id: newSceneId, title, order: insertIndex };
-
-                sortedScenes.splice(insertIndex, 0, newScene);
-                sortedScenes.forEach((s, i) => { s.order = i; });
-                setScenes(sortedScenes);
-
-                return newSceneId;
-              }}
-              onRenameScene={(sceneId, title) => {
-                setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, title } : s));
-              }}
-              onRemoveScene={(sceneId) => {
-                setScenes(prev => prev.filter(s => s.id !== sceneId));
-                // Unassign steps from the removed scene
-                wf.steps.filter(s => s.sceneId === sceneId).forEach(s => {
-                  wf.updateStep(s.id, { sceneId: undefined });
-                });
-              }}
             />
 
             {wf.selectedStep ? (
@@ -163,12 +101,11 @@ const ScenarioEditor = () => {
                 step={wf.selectedStep}
                 allSteps={wf.steps}
                 personas={personas}
-                scenes={scenes}
                 onClose={() => wf.setSelectedStepId(null)}
                 onUpdate={wf.updateStep}
               />
             ) : (
-              <ActionsPanel onAddStep={wf.addStep} onAddScene={() => setAddSceneOpen(true)} />
+              <ActionsPanel onAddStep={wf.addStep} />
             )}
           </div>
         )}
@@ -192,7 +129,6 @@ const ScenarioEditor = () => {
       </div>
 
       <ImportWizardModal open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} />
-      <AddSceneModal open={addSceneOpen} onOpenChange={setAddSceneOpen} personas={personas} onAddScene={handleAddScene} />
     </div>
   );
 };

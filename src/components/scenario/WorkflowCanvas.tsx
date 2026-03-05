@@ -1,24 +1,18 @@
-import { useState, DragEvent, useCallback, useRef, useEffect, useMemo } from "react";
-import { Step, ColumnId, StepType, ACTION_TILES, StepCategory, Scene, STEP_CATEGORIES_ORDER } from "@/types/workflow";
+import { useState, DragEvent, useCallback, useRef } from "react";
+import { Step, ColumnId, StepType, ACTION_TILES, StepCategory, STEP_CATEGORIES_ORDER } from "@/types/workflow";
 import { StepCard } from "./StepCard";
-import { SceneContainer } from "./SceneContainer";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface CanvasProps {
   steps: Step[];
-  scenes: Scene[];
   selectedStepId: string | null;
   selectedColumn: ColumnId;
   onSelectStep: (id: string | null) => void;
   onSelectColumn: (col: ColumnId) => void;
   onRemoveStep: (id: string) => void;
-  onMoveStep: (stepId: string, toColumn: ColumnId, toIndex: number, sceneId?: string) => void;
-  onAddStepToColumn: (type: StepType, label: string, column: ColumnId, index: number, sceneId?: string) => string;
-  onAddScene: (title: string) => void;
-  onInsertScene: (title: string, afterSceneId: string, side: 'left' | 'right') => string;
-  onRenameScene: (sceneId: string, title: string) => void;
-  onRemoveScene: (sceneId: string) => void;
+  onMoveStep: (stepId: string, toColumn: ColumnId, toIndex: number) => void;
+  onAddStepToColumn: (type: StepType, label: string, column: ColumnId, index: number) => string;
 }
 
 const COLUMNS: { id: ColumnId; label: string; headerClass: string; bgClass: string }[] = [
@@ -76,112 +70,9 @@ function AddStepPicker({ column, onAdd, onClose }: {
   );
 }
 
-/* ── Scene-to-scene connection arrows ── */
-function SceneArrows({ scenes, steps, containerRef }: { scenes: Scene[]; steps: Step[]; containerRef: React.RefObject<HTMLDivElement> }) {
-  const [paths, setPaths] = useState<{ d: string; key: string }[]>([]);
-
-  useEffect(() => {
-    if (!containerRef.current || scenes.length < 2) {
-      setPaths([]);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      const container = containerRef.current;
-      if (!container) return;
-      const containerRect = container.getBoundingClientRect();
-      const newPaths: { d: string; key: string }[] = [];
-
-      // Build connections: for each scene, find tasks that route to steps in other scenes
-      for (const scene of scenes) {
-        const sceneSteps = steps.filter(s => s.sceneId === scene.id);
-        const sceneEl = container.querySelector(`[data-scene-id="${scene.id}"]`);
-        if (!sceneEl) continue;
-        const sourceRect = sceneEl.getBoundingClientRect();
-
-        const targetSceneIds = new Set<string>();
-        for (const step of sceneSteps) {
-          // Check choices
-          if (step.choices) {
-            for (const choice of step.choices) {
-              if (choice.nextStepId) {
-                const targetStep = steps.find(s => s.id === choice.nextStepId);
-                if (targetStep?.sceneId && targetStep.sceneId !== scene.id) {
-                  targetSceneIds.add(targetStep.sceneId);
-                }
-              }
-            }
-          }
-          // Check tasks
-          if (step.tasks) {
-            for (const task of step.tasks) {
-              if (task.nextNodeId && task.nextNodeId !== "__end__") {
-                const targetStep = steps.find(s => s.id === task.nextNodeId);
-                if (targetStep?.sceneId && targetStep.sceneId !== scene.id) {
-                  targetSceneIds.add(targetStep.sceneId);
-                }
-              }
-            }
-          }
-          // Check fallback
-          if (step.fallbackNextStepId) {
-            const targetStep = steps.find(s => s.id === step.fallbackNextStepId);
-            if (targetStep?.sceneId && targetStep.sceneId !== scene.id) {
-              targetSceneIds.add(targetStep.sceneId);
-            }
-          }
-        }
-
-        for (const targetId of targetSceneIds) {
-          const targetEl = container.querySelector(`[data-scene-id="${targetId}"]`);
-          if (!targetEl) continue;
-          const targetRect = targetEl.getBoundingClientRect();
-
-          const sx = sourceRect.right - containerRect.left;
-          const sy = sourceRect.top + sourceRect.height / 2 - containerRect.top;
-          const tx = targetRect.left - containerRect.left;
-          const ty = targetRect.top + targetRect.height / 2 - containerRect.top;
-          const cpx = (sx + tx) / 2;
-
-          const d = `M ${sx} ${sy} C ${cpx} ${sy}, ${cpx} ${ty}, ${tx} ${ty}`;
-          newPaths.push({ d, key: `${scene.id}-${targetId}` });
-        }
-      }
-
-      setPaths(newPaths);
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [scenes, steps, containerRef]);
-
-  if (paths.length === 0) return null;
-
-  return (
-    <svg className="absolute inset-0 pointer-events-none z-10" style={{ overflow: "visible" }}>
-      <defs>
-        <marker id="scene-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <path d="M 0 0 L 8 3 L 0 6 Z" fill="hsl(var(--connection))" />
-        </marker>
-      </defs>
-      {paths.map(({ d, key }) => (
-        <path
-          key={key}
-          d={d}
-          stroke="hsl(var(--connection))"
-          strokeWidth={1.5}
-          fill="none"
-          strokeDasharray="6 3"
-          markerEnd="url(#scene-arrow)"
-          opacity={0.5}
-        />
-      ))}
-    </svg>
-  );
-}
 
 export function WorkflowCanvas({
   steps,
-  scenes,
   selectedStepId,
   selectedColumn,
   onSelectStep,
@@ -189,146 +80,32 @@ export function WorkflowCanvas({
   onRemoveStep,
   onMoveStep,
   onAddStepToColumn,
-  onAddScene,
-  onInsertScene,
-  onRenameScene,
-  onRemoveScene,
 }: CanvasProps) {
   const [dropTarget, setDropTarget] = useState<{ col: ColumnId; index: number } | null>(null);
-  const [sideDropTarget, setSideDropTarget] = useState<{ sceneId: string; side: 'left' | 'right' } | null>(null);
   const [pickerColumn, setPickerColumn] = useState<ColumnId | null>(null);
-  const simContainerRef = useRef<HTMLDivElement>(null);
 
   const stepsByColumn = (col: ColumnId) =>
     steps.filter((s) => s.column === col).sort((a, b) => a.order - b.order);
 
-  // Group simulation steps by scene
-  const simSceneGroups = useMemo(() => {
-    const simSteps = steps.filter(s => s.column === "simulation").sort((a, b) => a.order - b.order);
-    const sortedScenes = [...scenes].sort((a, b) => a.order - b.order);
-    const groups: { scene: Scene; steps: Step[] }[] = [];
-    const assignedIds = new Set<string>();
-
-    for (const scene of sortedScenes) {
-      const sceneSteps = simSteps.filter(s => s.sceneId === scene.id);
-      groups.push({ scene, steps: sceneSteps });
-      sceneSteps.forEach(s => assignedIds.add(s.id));
-    }
-
-    // Ungrouped simulation steps
-    const ungrouped = simSteps.filter(s => !assignedIds.has(s.id));
-    return { groups, ungrouped };
-  }, [steps, scenes]);
-
-  const getDropInfo = useCallback((e: DragEvent, col: ColumnId): { index: number; sceneId?: string } => {
+  const getDropInfo = useCallback((e: DragEvent, col: ColumnId): number => {
     const container = e.currentTarget as HTMLElement;
-
-    if (col === "simulation") {
-      const sceneContainers = Array.from(container.querySelectorAll("[data-scene-id]"));
-      const mouseX = e.clientX;
-      const mouseY = e.clientY;
-
-      for (const sceneEl of sceneContainers) {
-        const sceneRect = sceneEl.getBoundingClientRect();
-        if (mouseX >= sceneRect.left && mouseX <= sceneRect.right &&
-            mouseY >= sceneRect.top && mouseY <= sceneRect.bottom) {
-          const sceneId = sceneEl.getAttribute("data-scene-id") || undefined;
-          const cards = Array.from(sceneEl.querySelectorAll("[data-step-id]"));
-          for (let i = 0; i < cards.length; i++) {
-            const rect = cards[i].getBoundingClientRect();
-            const midY = rect.top + rect.height / 2;
-            if (mouseY < midY) return { index: i, sceneId };
-          }
-          return { index: cards.length, sceneId };
-        }
-      }
-
-      const allCards = Array.from(container.querySelectorAll("[data-step-id]"));
-      return { index: allCards.length, sceneId: undefined };
-    }
-
     const cards = Array.from(container.querySelectorAll("[data-step-id]"));
     const mouseY = e.clientY;
 
     for (let i = 0; i < cards.length; i++) {
       const rect = cards[i].getBoundingClientRect();
       const midY = rect.top + rect.height / 2;
-      if (mouseY < midY) return { index: i };
+      if (mouseY < midY) return i;
     }
-    return { index: cards.length };
+    return cards.length;
   }, []);
 
-  const handleSceneSideDrop = useCallback((sceneId: string, side: 'left' | 'right', dragEvent: DragEvent) => {
-    console.log('[Horizontal Drop] Drop triggered on', side, 'of scene:', sceneId);
-    const actionType = dragEvent.dataTransfer.getData("application/action-type");
-    const actionLabel = dragEvent.dataTransfer.getData("application/action-label");
-    const stepId = dragEvent.dataTransfer.getData("text/plain");
-
-    console.log('[Horizontal Drop] Drag data:', { actionType, actionLabel, stepId });
-
-    if (!actionType && !stepId) {
-      console.log('[Horizontal Drop] No valid drag data, aborting');
-      setSideDropTarget(null);
-      return;
-    }
-
-    console.log('[Horizontal Drop] Creating new scene...');
-    const newSceneId = onInsertScene(`New Scene`, sceneId, side);
-    console.log('[Horizontal Drop] New scene created:', newSceneId);
-
-    setTimeout(() => {
-      if (actionType && actionLabel) {
-        console.log('[Horizontal Drop] Adding action step to new scene');
-        onAddStepToColumn(actionType as StepType, actionLabel, "simulation", 0, newSceneId);
-      } else if (stepId) {
-        console.log('[Horizontal Drop] Moving existing step to new scene');
-        onMoveStep(stepId, "simulation", 0, newSceneId);
-      }
-    }, 50);
-
-    setSideDropTarget(null);
-  }, [onInsertScene, onAddStepToColumn, onMoveStep]);
 
   const handleDragOver = useCallback((e: DragEvent, col: ColumnId) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (col === "simulation") {
-      const container = e.currentTarget as HTMLElement;
-      const sceneContainers = Array.from(container.querySelectorAll("[data-scene-id]"));
-      const mouseX = e.clientX;
-      const mouseY = e.clientY;
-
-      for (const sceneEl of sceneContainers) {
-        const sceneRect = sceneEl.getBoundingClientRect();
-        if (mouseX >= sceneRect.left - 30 && mouseX <= sceneRect.right + 30 &&
-            mouseY >= sceneRect.top && mouseY <= sceneRect.bottom) {
-
-          const sceneId = sceneEl.getAttribute("data-scene-id");
-          if (!sceneId) continue;
-
-          const leftEdge = sceneRect.left;
-          const rightEdge = sceneRect.right;
-          const edgeThreshold = 40;
-
-          if (mouseX < leftEdge + edgeThreshold) {
-            console.log('[Horizontal Drop] Left edge detected for scene:', sceneId);
-            setSideDropTarget({ sceneId, side: 'left' });
-            setDropTarget(null);
-            return;
-          } else if (mouseX > rightEdge - edgeThreshold) {
-            console.log('[Horizontal Drop] Right edge detected for scene:', sceneId);
-            setSideDropTarget({ sceneId, side: 'right' });
-            setDropTarget(null);
-            return;
-          }
-        }
-      }
-
-      setSideDropTarget(null);
-    }
-
-    const { index } = getDropInfo(e, col);
+    const index = getDropInfo(e, col);
     setDropTarget({ col, index });
   }, [getDropInfo]);
 
@@ -336,42 +113,27 @@ export function WorkflowCanvas({
     e.preventDefault();
     e.stopPropagation();
 
-    if (sideDropTarget) {
-      handleSceneSideDrop(sideDropTarget.sceneId, sideDropTarget.side, e);
-      return;
-    }
-
     const actionType = e.dataTransfer.getData("application/action-type");
     const actionLabel = e.dataTransfer.getData("application/action-label");
-    const { index, sceneId } = getDropInfo(e, col);
+    const index = getDropInfo(e, col);
 
     if (actionType && actionLabel) {
-      onAddStepToColumn(actionType as StepType, actionLabel, col, index, sceneId);
+      onAddStepToColumn(actionType as StepType, actionLabel, col, index);
     } else {
       const stepId = e.dataTransfer.getData("text/plain");
       if (stepId) {
-        onMoveStep(stepId, col, index, sceneId);
+        onMoveStep(stepId, col, index);
       }
     }
     onSelectColumn(col);
     setDropTarget(null);
-  }, [sideDropTarget, handleSceneSideDrop, getDropInfo, onMoveStep, onSelectColumn, onAddStepToColumn]);
+  }, [getDropInfo, onMoveStep, onSelectColumn, onAddStepToColumn]);
 
   const handleDragLeave = useCallback(() => {
     setDropTarget(null);
-    setSideDropTarget(null);
   }, []);
 
-  const handleSceneSideDragOver = useCallback((sceneId: string, side: 'left' | 'right') => {
-    setSideDropTarget({ sceneId, side });
-    setDropTarget(null);
-  }, []);
-
-  const handleSceneSideDragLeave = useCallback(() => {
-    setSideDropTarget(null);
-  }, []);
-
-  const renderIntroOrReview = (col: typeof COLUMNS[number]) => {
+  const renderColumn = (col: typeof COLUMNS[number]) => {
     const colSteps = stepsByColumn(col.id);
     const isActive = selectedColumn === col.id;
     const isDropHere = dropTarget?.col === col.id;
@@ -443,136 +205,10 @@ export function WorkflowCanvas({
     );
   };
 
-  const simCol = COLUMNS.find(c => c.id === "simulation")!;
-  const isSimActive = selectedColumn === "simulation";
-  const isSimDropHere = dropTarget?.col === "simulation";
-
   return (
     <div className="flex-1 bg-canvas p-4 overflow-auto relative">
       <div className="flex gap-3 relative z-20 min-h-[500px] items-start">
-        {/* INTRO column */}
-        {renderIntroOrReview(COLUMNS[0])}
-
-        {/* SIMULATION column — scene-based */}
-        <div
-          ref={simContainerRef}
-          className={`flex-1 min-w-[320px] shrink-0 rounded-lg border-2 transition-colors relative ${
-            isSimDropHere
-              ? "border-primary/50 bg-primary/5"
-              : isSimActive
-              ? "border-primary/30"
-              : "border-border"
-          } ${simCol.bgClass}`}
-          onClick={(e) => { e.stopPropagation(); onSelectColumn("simulation"); }}
-        >
-          <div className={`px-3 py-2 rounded-t-md flex items-center justify-between ${simCol.headerClass}`}>
-            <h3 className="text-xs font-bold tracking-wider text-foreground/70">SIMULATION</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddScene(`Scene ${scenes.length + 1}`);
-              }}
-            >
-              <Plus className="w-3 h-3" /> Add Scene
-            </Button>
-          </div>
-
-          <div
-            className="p-3 relative"
-            onDragOver={(e) => handleDragOver(e, "simulation")}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, "simulation")}
-          >
-            {/* Arrows now inline with scenes */}
-
-            {/* Scene containers in horizontal flow */}
-            {simSceneGroups.groups.length > 0 ? (
-              <div className="flex gap-3 relative z-20 overflow-x-auto pb-2 scrollbar-thin">
-                {simSceneGroups.groups.map(({ scene, steps: sceneSteps }, idx) => (
-                  <div key={scene.id} className="flex items-center shrink-0">
-                    {idx > 0 && (
-                      <svg className="w-8 h-6 shrink-0 -mx-1" viewBox="0 0 32 24">
-                        <defs>
-                          <marker id={`arrow-${scene.id}`} markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                            <path d="M 0 0 L 8 3 L 0 6 Z" fill="hsl(var(--connection))" />
-                          </marker>
-                        </defs>
-                        <line x1="0" y1="12" x2="24" y2="12" stroke="hsl(var(--connection))" strokeWidth="1.5" markerEnd={`url(#arrow-${scene.id})`} />
-                      </svg>
-                    )}
-                    <div className="w-[260px] shrink-0">
-                      <SceneContainer
-                        scene={scene}
-                        steps={sceneSteps}
-                        selectedStepId={selectedStepId}
-                        onSelectStep={onSelectStep}
-                        onRemoveStep={onRemoveStep}
-                        onRenameScene={onRenameScene}
-                        onRemoveScene={onRemoveScene}
-                        showLeftDropZone={sideDropTarget?.sceneId === scene.id && sideDropTarget?.side === 'left'}
-                        showRightDropZone={sideDropTarget?.sceneId === scene.id && sideDropTarget?.side === 'right'}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {/* Ungrouped steps */}
-            {simSceneGroups.ungrouped.length > 0 && (
-              <div className={`space-y-2 ${simSceneGroups.groups.length > 0 ? "mt-3 pt-3 border-t border-border" : ""}`}>
-                <p className="text-[10px] font-semibold text-muted-foreground tracking-wider uppercase">Ungrouped Steps</p>
-                {simSceneGroups.ungrouped.map((step) => (
-                  <div key={step.id} data-step-id={step.id}>
-                    <StepCard
-                      step={step}
-                      isSelected={selectedStepId === step.id}
-                      onSelect={() => onSelectStep(step.id)}
-                      onRemove={() => onRemoveStep(step.id)}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {simSceneGroups.groups.length === 0 && simSceneGroups.ungrouped.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-8">
-                Add scenes to organize your simulation flow
-              </p>
-            )}
-          </div>
-
-          {/* Add Step at bottom */}
-          <div className="flex justify-center pb-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-              onClick={(e) => {
-                e.stopPropagation();
-                setPickerColumn(pickerColumn === "simulation" ? null : "simulation");
-              }}
-            >
-              <Plus className="w-3.5 h-3.5" /> Add Step
-            </Button>
-          </div>
-          {pickerColumn === "simulation" && (
-            <AddStepPicker
-              column="simulation"
-              onAdd={(type, label, column, index) => {
-                onAddStepToColumn(type, label, column, index);
-                onSelectColumn(column);
-              }}
-              onClose={() => setPickerColumn(null)}
-            />
-          )}
-        </div>
-
-        {/* REVIEW column */}
-        {renderIntroOrReview(COLUMNS[2])}
+        {COLUMNS.map(col => renderColumn(col))}
       </div>
     </div>
   );

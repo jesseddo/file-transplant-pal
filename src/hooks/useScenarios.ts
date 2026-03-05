@@ -12,9 +12,7 @@ function loadFromStorage(): Scenario[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw);
-      // Ensure scenes array exists for older persisted data
-      return parsed.map((s: any) => ({ ...s, scenes: s.scenes ?? [] }));
+      return JSON.parse(raw);
     }
   } catch {
     /* ignore */
@@ -59,7 +57,6 @@ export function useScenarios() {
         steps: opts.steps ?? [],
         personas: opts.personas ?? [],
         resources: opts.resources ?? [],
-        scenes: [],
       };
       setScenarios((prev) => [...prev, scenario]);
       return id;

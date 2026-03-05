@@ -52,7 +52,7 @@ export const FLOW_LABELS: Record<FlowBehavior, { label: string; description: str
   timing: { label: "Timing Pressure", description: "Silent timer that affects evaluation if the learner takes too long." },
 };
 
-export type StepCategory = "Content" | "Communication" | "Reflection" | "Flow Control" | "Assessment" | "Triggers";
+export type StepCategory = "Media" | "Resources" | "Communication" | "Coaching" | "Flow Control" | "Assessment" | "Triggers";
 
 // ── Persona ──
 
@@ -87,13 +87,6 @@ export interface SceneResource {
   hidden?: boolean;
 }
 
-// ── Scene (groups steps within simulation) ──
-
-export interface Scene {
-  id: string;
-  title: string;
-  order: number;
-}
 
 // ── Action Tile (palette) ──
 
@@ -127,7 +120,6 @@ export interface Step {
   type: StepType;
   column: ColumnId;
   order: number;
-  sceneId?: string;
   flowBehavior?: FlowBehavior;
   choices?: BranchChoice[];
   routingRules?: RoutingRule[];
@@ -155,20 +147,21 @@ export interface Step {
 }
 
 export const STEP_CATEGORIES_ORDER: StepCategory[] = [
-  "Content", "Communication", "Reflection", "Flow Control", "Assessment", "Triggers",
+  "Media", "Resources", "Communication", "Coaching", "Flow Control", "Assessment", "Triggers",
 ];
 
 export const ACTION_TILES: ActionTile[] = [
-  // Content
-  { type: "video", label: "Video", category: "Content", icon: "Play", isMechanic: false },
-  { type: "audio", label: "Audio", category: "Content", icon: "Headphones", isMechanic: false },
-  { type: "pdf", label: "PDF / Document", category: "Content", icon: "FileText", isMechanic: false },
-  { type: "3d-environment", label: "3D Environment", category: "Content", icon: "Box", isMechanic: false },
+  // Media
+  { type: "video", label: "Video", category: "Media", icon: "Play", isMechanic: false },
+  { type: "audio", label: "Audio", category: "Media", icon: "Headphones", isMechanic: false },
+  // Resources
+  { type: "pdf", label: "PDF Document", category: "Resources", icon: "FileText", isMechanic: false },
   // Communication
   { type: "text-chat", label: "Text Chat", category: "Communication", icon: "MessageSquare", isMechanic: false },
   { type: "radio-call", label: "Radio Call", category: "Communication", icon: "Radio", isMechanic: false },
-  // Reflection
-  { type: "ai-coach", label: "AI Coach Reflection", category: "Reflection", icon: "Brain", isMechanic: false },
+  { type: "3d-environment", label: "3D Environment", category: "Communication", icon: "Box", isMechanic: false },
+  // Coaching
+  { type: "ai-coach", label: "AI Coach Reflection", category: "Coaching", icon: "Brain", isMechanic: false },
   // Flow Control
   { type: "decision-checkpoint", label: "Decision Point", category: "Flow Control", icon: "GitMerge", isMechanic: true },
   { type: "redirect-loop", label: "Redirect / Loop", category: "Flow Control", icon: "RotateCcw", isMechanic: true },
@@ -199,13 +192,13 @@ export const STEP_TYPE_LABELS: Record<StepType, string> = {
 };
 
 export const STEP_TYPE_CATEGORY: Record<StepType, StepCategory> = {
-  video: "Content",
-  pdf: "Content",
-  audio: "Content",
+  video: "Media",
+  pdf: "Resources",
+  audio: "Media",
   "text-chat": "Communication",
   "radio-call": "Communication",
-  "3d-environment": "Content",
-  "ai-coach": "Reflection",
+  "3d-environment": "Communication",
+  "ai-coach": "Coaching",
   "fetch-document": "Assessment",
   "generate-evaluation": "Assessment",
   interruption: "Triggers",
@@ -233,9 +226,10 @@ export const STEP_IS_MECHANIC: Record<StepType, boolean> = {
 };
 
 export const CATEGORY_BADGE_CLASS: Record<StepCategory, string> = {
-  Content: "bg-[hsl(var(--badge-media))] text-[hsl(var(--badge-media-fg))]",
+  Media: "bg-[hsl(var(--badge-media))] text-[hsl(var(--badge-media-fg))]",
+  Resources: "bg-[hsl(var(--badge-resources))] text-[hsl(var(--badge-resources-fg))]",
   Communication: "bg-[hsl(var(--badge-communication))] text-[hsl(var(--badge-communication-fg))]",
-  Reflection: "bg-[hsl(var(--badge-reflection))] text-[hsl(var(--badge-reflection-fg))]",
+  Coaching: "bg-[hsl(var(--badge-reflection))] text-[hsl(var(--badge-reflection-fg))]",
   "Flow Control": "bg-[hsl(var(--badge-branching))] text-[hsl(var(--badge-branching-fg))]",
   Assessment: "bg-[hsl(var(--badge-assessment))] text-[hsl(var(--badge-assessment-fg))]",
   Triggers: "bg-[hsl(var(--badge-behavioral))] text-[hsl(var(--badge-behavioral-fg))]",
@@ -256,7 +250,6 @@ export interface Scenario {
   steps: Step[];
   personas: Persona[];
   resources: SceneResource[];
-  scenes: Scene[];
 }
 
 export const CRITICALITY_LABELS: Record<CriticalityLevel, string> = {

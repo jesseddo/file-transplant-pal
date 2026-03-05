@@ -1,5 +1,5 @@
 import {
-  Step, BranchChoice, SimTask, Persona, Scene,
+  Step, BranchChoice, SimTask, Persona,
   STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, STEP_IS_MECHANIC, CATEGORY_BADGE_CLASS,
   isDecisionCheckpointValid, FlowBehavior, FLOW_COMPATIBILITY, FLOW_LABELS,
   EvaluationWeight, TrackId,
@@ -17,7 +17,6 @@ interface InspectorPanelProps {
   step: Step;
   allSteps: Step[];
   personas: Persona[];
-  scenes: Scene[];
   onClose: () => void;
   onUpdate: (id: string, updates: Partial<Step>) => void;
 }
@@ -69,7 +68,7 @@ const COMPETENCY_SUGGESTIONS = [
 ];
 
 /* ── Main panel ── */
-export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUpdate }: InspectorPanelProps) {
+export function InspectorPanel({ step, allSteps, personas, onClose, onUpdate }: InspectorPanelProps) {
   const [activeTab, setActiveTab] = useState<InspectorTab>("content");
 
   const category = STEP_TYPE_CATEGORY[step.type];
@@ -175,18 +174,6 @@ export function InspectorPanel({ step, allSteps, personas, scenes, onClose, onUp
             </span>
           )}
         </div>
-        {step.column === "simulation" && scenes.length > 0 && (
-          <select
-            value={step.sceneId ?? ""}
-            onChange={(e) => onUpdate(step.id, { sceneId: e.target.value || undefined })}
-            className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
-          >
-            <option value="">— Ungrouped —</option>
-            {scenes.map(s => (
-              <option key={s.id} value={s.id}>{s.title}</option>
-            ))}
-          </select>
-        )}
       </div>
 
       {/* Tab bar */}
