@@ -1,6 +1,6 @@
 import { Step, Scene } from "@/types/workflow";
 import { StepCard } from "./StepCard";
-import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, MoveHorizontal as MoreHorizontal } from "lucide-react";
 import { useState, DragEvent } from "react";
 
 interface SceneContainerProps {
