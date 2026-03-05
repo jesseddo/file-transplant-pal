@@ -258,6 +258,37 @@ export function WorkflowCanvas({
     return { index: cards.length };
   }, []);
 
+  const handleSceneSideDrop = useCallback((sceneId: string, side: 'left' | 'right', dragEvent: DragEvent) => {
+    console.log('[Horizontal Drop] Drop triggered on', side, 'of scene:', sceneId);
+    const actionType = dragEvent.dataTransfer.getData("application/action-type");
+    const actionLabel = dragEvent.dataTransfer.getData("application/action-label");
+    const stepId = dragEvent.dataTransfer.getData("text/plain");
+
+    console.log('[Horizontal Drop] Drag data:', { actionType, actionLabel, stepId });
+
+    if (!actionType && !stepId) {
+      console.log('[Horizontal Drop] No valid drag data, aborting');
+      setSideDropTarget(null);
+      return;
+    }
+
+    console.log('[Horizontal Drop] Creating new scene...');
+    const newSceneId = onInsertScene(`New Scene`, sceneId, side);
+    console.log('[Horizontal Drop] New scene created:', newSceneId);
+
+    setTimeout(() => {
+      if (actionType && actionLabel) {
+        console.log('[Horizontal Drop] Adding action step to new scene');
+        onAddStepToColumn(actionType as StepType, actionLabel, "simulation", 0, newSceneId);
+      } else if (stepId) {
+        console.log('[Horizontal Drop] Moving existing step to new scene');
+        onMoveStep(stepId, "simulation", 0, newSceneId);
+      }
+    }, 50);
+
+    setSideDropTarget(null);
+  }, [onInsertScene, onAddStepToColumn, onMoveStep]);
+
   const handleDragOver = useCallback((e: DragEvent, col: ColumnId) => {
     e.preventDefault();
     e.stopPropagation();
@@ -339,37 +370,6 @@ export function WorkflowCanvas({
   const handleSceneSideDragLeave = useCallback(() => {
     setSideDropTarget(null);
   }, []);
-
-  const handleSceneSideDrop = useCallback((sceneId: string, side: 'left' | 'right', dragEvent: DragEvent) => {
-    console.log('[Horizontal Drop] Drop triggered on', side, 'of scene:', sceneId);
-    const actionType = dragEvent.dataTransfer.getData("application/action-type");
-    const actionLabel = dragEvent.dataTransfer.getData("application/action-label");
-    const stepId = dragEvent.dataTransfer.getData("text/plain");
-
-    console.log('[Horizontal Drop] Drag data:', { actionType, actionLabel, stepId });
-
-    if (!actionType && !stepId) {
-      console.log('[Horizontal Drop] No valid drag data, aborting');
-      setSideDropTarget(null);
-      return;
-    }
-
-    console.log('[Horizontal Drop] Creating new scene...');
-    const newSceneId = onInsertScene(`New Scene`, sceneId, side);
-    console.log('[Horizontal Drop] New scene created:', newSceneId);
-
-    setTimeout(() => {
-      if (actionType && actionLabel) {
-        console.log('[Horizontal Drop] Adding action step to new scene');
-        onAddStepToColumn(actionType as StepType, actionLabel, "simulation", 0, newSceneId);
-      } else if (stepId) {
-        console.log('[Horizontal Drop] Moving existing step to new scene');
-        onMoveStep(stepId, "simulation", 0, newSceneId);
-      }
-    }, 50);
-
-    setSideDropTarget(null);
-  }, [onInsertScene, onAddStepToColumn, onMoveStep]);
 
   const renderIntroOrReview = (col: typeof COLUMNS[number]) => {
     const colSteps = stepsByColumn(col.id);
