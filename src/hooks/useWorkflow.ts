@@ -154,8 +154,22 @@ const INITIAL_STEPS: Step[] = [
 
 let nextId = 100;
 
+function initializeGridPositions(steps: Step[]): Step[] {
+  return steps.map(step => {
+    if (step.column === "simulation" && !step.ui?.position) {
+      return {
+        ...step,
+        ui: { position: { x: step.order, y: 0 } },
+      };
+    }
+    return step;
+  });
+}
+
 export function useWorkflow(initialSteps?: Step[]) {
-  const [steps, setSteps] = useState<Step[]>(initialSteps ?? INITIAL_STEPS);
+  const [steps, setSteps] = useState<Step[]>(() =>
+    initializeGridPositions(initialSteps ?? INITIAL_STEPS)
+  );
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [selectedColumn, setSelectedColumn] = useState<ColumnId>("intro");
 
@@ -215,11 +229,40 @@ export function useWorkflow(initialSteps?: Step[]) {
     setSelectedStepId(null);
   }, []);
 
+  const addStepToGrid = useCallback((type: StepType, title: string, gridX: number, gridY: number): string => {
+    const id = `s${nextId++}`;
+    const newStep: Step = {
+      id,
+      title,
+      type,
+      column: "simulation",
+      order: 0,
+      ui: { position: { x: gridX, y: gridY } },
+    };
+    setSteps((prev) => [...prev, newStep]);
+    setSelectedStepId(id);
+    return id;
+  }, []);
+
+  const moveStepToGrid = useCallback((stepId: string, gridX: number, gridY: number) => {
+    setSteps((prev) => prev.map((s) => {
+      if (s.id === stepId) {
+        return {
+          ...s,
+          column: "simulation",
+          ui: { position: { x: gridX, y: gridY } },
+        };
+      }
+      return s;
+    }));
+  }, []);
+
   const selectedStep = steps.find((s) => s.id === selectedStepId) ?? null;
 
   return {
     steps, selectedStep, selectedStepId, selectedColumn,
     setSelectedStepId, setSelectedColumn,
     addStep, addStepToColumn, removeStep, updateStep, moveStep, importSteps,
+    addStepToGrid, moveStepToGrid,
   };
 }

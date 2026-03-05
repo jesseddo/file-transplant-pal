@@ -94,6 +94,8 @@ const ScenarioEditor = () => {
               onRemoveStep={wf.removeStep}
               onMoveStep={wf.moveStep}
               onAddStepToColumn={wf.addStepToColumn}
+              onMoveStepToGrid={wf.moveStepToGrid}
+              onAddStepToGrid={wf.addStepToGrid}
             />
 
             {wf.selectedStep ? (
