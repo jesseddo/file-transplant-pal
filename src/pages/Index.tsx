@@ -26,6 +26,7 @@ const ScenarioEditor = () => {
   const { personas, importPersonas, setPersonas } = usePersonas(scenario?.personas);
   const [activeTab, setActiveTab] = useState("design");
   const [importOpen, setImportOpen] = useState(false);
+  const [isDraggingFromSidebar, setIsDraggingFromSidebar] = useState(false);
   const { toast } = useToast();
 
   // Sync changes back to scenario storage
@@ -96,6 +97,7 @@ const ScenarioEditor = () => {
               onAddStepToColumn={wf.addStepToColumn}
               onMoveStepToGrid={wf.moveStepToGrid}
               onAddStepToGrid={wf.addStepToGrid}
+              isDraggingFromSidebar={isDraggingFromSidebar}
             />
 
             {wf.selectedStep ? (
@@ -107,7 +109,11 @@ const ScenarioEditor = () => {
                 onUpdate={wf.updateStep}
               />
             ) : (
-              <ActionsPanel onAddStep={wf.addStep} />
+              <ActionsPanel
+                onAddStep={wf.addStep}
+                onDragStart={() => setIsDraggingFromSidebar(true)}
+                onDragEnd={() => setIsDraggingFromSidebar(false)}
+              />
             )}
           </div>
         )}

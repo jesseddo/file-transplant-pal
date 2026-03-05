@@ -15,6 +15,7 @@ interface CanvasProps {
   onAddStepToColumn: (type: StepType, label: string, column: ColumnId, index: number) => string;
   onMoveStepToGrid: (stepId: string, gridX: number, gridY: number) => void;
   onAddStepToGrid: (type: StepType, label: string, gridX: number, gridY: number) => string;
+  isDraggingFromSidebar?: boolean;
 }
 
 const COLUMNS: { id: ColumnId; label: string; headerClass: string; bgClass: string }[] = [
@@ -165,6 +166,7 @@ export function WorkflowCanvas({
   onAddStepToColumn,
   onMoveStepToGrid,
   onAddStepToGrid,
+  isDraggingFromSidebar,
 }: CanvasProps) {
   const [dropTarget, setDropTarget] = useState<{ col: ColumnId; index: number } | null>(null);
   const [gridDropTarget, setGridDropTarget] = useState<{ x: number; y: number; isValid: boolean } | null>(null);
@@ -172,6 +174,8 @@ export function WorkflowCanvas({
   const [isDragging, setIsDragging] = useState(false);
   const [draggedStepId, setDraggedStepId] = useState<string | null>(null);
   const simGridRef = useRef<HTMLDivElement>(null);
+
+  const showDropZones = isDragging || isDraggingFromSidebar;
 
   const stepsByColumn = (col: ColumnId) =>
     steps.filter((s) => s.column === col).sort((a, b) => a.order - b.order);
@@ -337,10 +341,10 @@ export function WorkflowCanvas({
                   <div
                     key={`grid-${col}-${row}`}
                     className={`absolute border rounded-md transition-all ${
-                      isDragging
+                      showDropZones
                         ? isOccupied
                           ? "border-destructive/40 bg-destructive/5 border-dashed"
-                          : "border-border/50 bg-accent/5 border-dashed"
+                          : "border-primary/40 bg-primary/5 border-dashed"
                         : "border-dashed border-border/30"
                     } ${isHovered && !gridDropTarget.isValid ? "bg-destructive/10 border-destructive" : ""} ${
                       isHovered && gridDropTarget.isValid ? "bg-primary/10 border-primary" : ""
@@ -351,7 +355,13 @@ export function WorkflowCanvas({
                       width: `${GRID_CELL_WIDTH}px`,
                       height: `${GRID_CELL_HEIGHT}px`,
                     }}
-                  />
+                  >
+                    {showDropZones && !isOccupied && (
+                      <div className="absolute inset-0 flex items-center justify-center opacity-30">
+                        <Plus className="w-6 h-6 text-primary" />
+                      </div>
+                    )}
+                  </div>
                 );
               })
             )}

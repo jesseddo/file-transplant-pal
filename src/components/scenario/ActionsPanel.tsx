@@ -11,9 +11,11 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 
 interface ActionsPanelProps {
   onAddStep: (type: StepType, label: string) => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
-export function ActionsPanel({ onAddStep }: ActionsPanelProps) {
+export function ActionsPanel({ onAddStep, onDragStart, onDragEnd }: ActionsPanelProps) {
   return (
     <aside className="w-56 shrink-0 border-l border-border bg-actions-panel h-full overflow-y-auto scrollbar-thin">
       <div className="px-4 py-3 border-b border-border">
@@ -40,6 +42,10 @@ export function ActionsPanel({ onAddStep }: ActionsPanelProps) {
                         e.dataTransfer.setData("application/action-type", tile.type);
                         e.dataTransfer.setData("application/action-label", tile.label);
                         e.dataTransfer.effectAllowed = "copyMove";
+                        onDragStart?.();
+                      }}
+                      onDragEnd={() => {
+                        onDragEnd?.();
                       }}
                       onClick={() => onAddStep(tile.type, tile.label)}
                       className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-foreground hover:bg-accent transition-colors text-left cursor-grab active:cursor-grabbing"
