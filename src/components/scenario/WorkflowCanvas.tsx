@@ -1,6 +1,7 @@
 import { useState, DragEvent, useCallback, useRef, useEffect } from "react";
-import { Step, ColumnId, StepType, ACTION_TILES, STEP_CATEGORIES_ORDER } from "@/types/workflow";
+import { Step, ColumnId, StepType, ACTION_TILES, STEP_CATEGORIES_ORDER, ConnectionType, ConnectionStyle, CONNECTION_TYPE_COLORS } from "@/types/workflow";
 import { StepCard } from "./StepCard";
+import { ConnectionLabel } from "./ConnectionLabel";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -30,23 +31,41 @@ const GRID_CELL_WIDTH = 180;
 const GRID_CELL_HEIGHT = 120;
 const GRID_GAP = 16;
 
+interface ArrowData {
+  id: string;
+  path: string;
+  style: ConnectionStyle;
+  midX: number;
+  midY: number;
+  fromStepId: string;
+  toStepId: string;
+}
+
 function SimulationGridArrows({ steps }: { steps: Step[] }) {
-  const [arrows, setArrows] = useState<{ id: string; path: string; dashed?: boolean }[]>([]);
+  const [arrows, setArrows] = useState<ArrowData[]>([]);
 
   useEffect(() => {
-    const newArrows: { id: string; path: string; dashed?: boolean }[] = [];
+    const newArrows: ArrowData[] = [];
     const simSteps = steps.filter(s => s.column === "simulation");
 
     for (const step of simSteps) {
       const fromX = (step.ui?.position?.x ?? 0) * (GRID_CELL_WIDTH + GRID_GAP) + GRID_CELL_WIDTH;
       const fromY = (step.ui?.position?.y ?? 0) * (GRID_CELL_HEIGHT + GRID_GAP) + GRID_CELL_HEIGHT / 2;
 
-      const connections: { targetId: string; dashed?: boolean }[] = [];
+      const connections: { targetId: string; style: ConnectionStyle }[] = [];
 
       if (step.choices) {
         step.choices.forEach(choice => {
           if (choice.nextStepId) {
-            connections.push({ targetId: choice.nextStepId, dashed: false });
+            const defaultStyle: ConnectionStyle = {
+              type: "conditional",
+              label: choice.label,
+              dashed: false,
+            };
+            connections.push({
+              targetId: choice.nextStepId,
+              style: choice.connectionStyle || defaultStyle,
+            });
           }
         });
       }
@@ -54,13 +73,52 @@ function SimulationGridArrows({ steps }: { steps: Step[] }) {
       if (step.tasks) {
         step.tasks.forEach(task => {
           if (task.nextNodeId && task.nextNodeId !== "__end__") {
-            connections.push({ targetId: task.nextNodeId, dashed: true });
+            const defaultStyle: ConnectionStyle = {
+              type: "linear",
+              label: task.description,
+              dashed: true,
+            };
+            connections.push({
+              targetId: task.nextNodeId,
+              style: defaultStyle,
+            });
           }
         });
       }
 
+      if (step.interruptionTriggerId) {
+        const defaultStyle: ConnectionStyle = {
+          type: "interruption",
+          label: "Interrupt",
+          dashed: true,
+        };
+        connections.push({
+          targetId: step.interruptionTriggerId,
+          style: step.interruptionStyle || defaultStyle,
+        });
+      }
+
+      if (step.resumeTargetStepId) {
+        const defaultStyle: ConnectionStyle = {
+          type: "resume",
+          label: "Resume",
+          dashed: true,
+        };
+        connections.push({
+          targetId: step.resumeTargetStepId,
+          style: step.resumeStyle || defaultStyle,
+        });
+      }
+
       if (step.fallbackNextStepId) {
-        connections.push({ targetId: step.fallbackNextStepId, dashed: false });
+        const defaultStyle: ConnectionStyle = {
+          type: "linear",
+          dashed: false,
+        };
+        connections.push({
+          targetId: step.fallbackNextStepId,
+          style: defaultStyle,
+        });
       }
 
       for (const conn of connections) {
@@ -73,10 +131,17 @@ function SimulationGridArrows({ steps }: { steps: Step[] }) {
         const cpx = (fromX + toX) / 2;
         const path = `M ${fromX} ${fromY} C ${cpx} ${fromY}, ${cpx} ${toY}, ${toX} ${toY}`;
 
+        const midX = cpx;
+        const midY = (fromY + toY) / 2;
+
         newArrows.push({
           id: `${step.id}-${conn.targetId}`,
           path,
-          dashed: conn.dashed,
+          style: conn.style,
+          midX,
+          midY,
+          fromStepId: step.id,
+          toStepId: conn.targetId,
         });
       }
     }
@@ -89,22 +154,45 @@ function SimulationGridArrows({ steps }: { steps: Step[] }) {
   return (
     <svg className="absolute inset-0 pointer-events-none z-10" style={{ overflow: "visible" }}>
       <defs>
-        <marker id="arrow-head" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <path d="M 0 0 L 8 3 L 0 6 Z" fill="hsl(var(--connection))" />
+        <marker id="arrow-linear" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <path d="M 0 0 L 8 3 L 0 6 Z" fill={CONNECTION_TYPE_COLORS.linear} />
+        </marker>
+        <marker id="arrow-conditional" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <path d="M 0 0 L 8 3 L 0 6 Z" fill={CONNECTION_TYPE_COLORS.conditional} />
+        </marker>
+        <marker id="arrow-interruption" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <path d="M 0 0 L 8 3 L 0 6 Z" fill={CONNECTION_TYPE_COLORS.interruption} />
+        </marker>
+        <marker id="arrow-resume" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <path d="M 0 0 L 8 3 L 0 6 Z" fill={CONNECTION_TYPE_COLORS.resume} />
         </marker>
       </defs>
-      {arrows.map(({ id, path, dashed }) => (
-        <path
-          key={id}
-          d={path}
-          stroke="hsl(var(--connection))"
-          strokeWidth={1.5}
-          fill="none"
-          strokeDasharray={dashed ? "6 3" : undefined}
-          markerEnd="url(#arrow-head)"
-          opacity={0.6}
-        />
-      ))}
+      {arrows.map(({ id, path, style, midX, midY }) => {
+        const color = style.color || CONNECTION_TYPE_COLORS[style.type];
+        const strokeWidth = style.type === "interruption" ? 2 : 1.5;
+        const opacity = style.type === "interruption" ? 0.8 : 0.6;
+
+        return (
+          <g key={id}>
+            <path
+              d={path}
+              stroke={color}
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeDasharray={style.dashed ? "6 3" : undefined}
+              markerEnd={`url(#arrow-${style.type})`}
+              opacity={opacity}
+              className="pointer-events-auto cursor-pointer hover:opacity-100 transition-opacity"
+            />
+            <ConnectionLabel
+              label={style.label}
+              type={style.type}
+              midX={midX}
+              midY={midY}
+            />
+          </g>
+        );
+      })}
     </svg>
   );
 }

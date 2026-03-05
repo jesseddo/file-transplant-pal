@@ -98,16 +98,27 @@ export interface ActionTile {
   isMechanic: boolean;
 }
 
+export type ConnectionType = "linear" | "conditional" | "interruption" | "resume";
+
+export interface ConnectionStyle {
+  color?: string;
+  label?: string;
+  type: ConnectionType;
+  dashed?: boolean;
+}
+
 export interface BranchChoice {
   id: string;
   label: string;
   actionId: string;
   nextStepId: string;
+  connectionStyle?: ConnectionStyle;
 }
 
 export interface RoutingRule {
   choiceId: string;
   nextStepId: string;
+  connectionStyle?: ConnectionStyle;
 }
 
 export type TrackId = "main" | "parallel-1";
@@ -130,7 +141,9 @@ export interface Step {
   trackId?: TrackId;
   state?: StepState;
   interruptionTriggerId?: string;
+  interruptionStyle?: ConnectionStyle;
   resumeTargetStepId?: string;
+  resumeStyle?: ConnectionStyle;
 
   // Evaluation layer
   evaluation?: EvaluationConfig;
@@ -256,6 +269,20 @@ export const CRITICALITY_LABELS: Record<CriticalityLevel, string> = {
   "safety-critical": "Safety Critical",
   operational: "Operational",
   training: "Training",
+};
+
+export const CONNECTION_TYPE_COLORS: Record<ConnectionType, string> = {
+  linear: "hsl(var(--muted-foreground))",
+  conditional: "hsl(210, 100%, 50%)",
+  interruption: "hsl(0, 84%, 60%)",
+  resume: "hsl(270, 70%, 60%)",
+};
+
+export const CONNECTION_TYPE_LABELS: Record<ConnectionType, string> = {
+  linear: "Linear Flow",
+  conditional: "Conditional Branch",
+  interruption: "Interruption",
+  resume: "Resume Flow",
 };
 
 export function isDecisionCheckpointValid(step: Step): boolean {

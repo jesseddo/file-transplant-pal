@@ -2,7 +2,7 @@ import {
   Step, BranchChoice, SimTask, Persona,
   STEP_TYPE_LABELS, STEP_TYPE_CATEGORY, STEP_IS_MECHANIC, CATEGORY_BADGE_CLASS,
   isDecisionCheckpointValid, FlowBehavior, FLOW_COMPATIBILITY, FLOW_LABELS,
-  EvaluationWeight, TrackId,
+  EvaluationWeight, TrackId, ConnectionType, CONNECTION_TYPE_LABELS, ConnectionStyle,
 } from "@/types/workflow";
 import { X, Plus, Trash2, CircleAlert as AlertCircle, ChevronDown, ChevronRight, Eye, EyeOff, User, MessageSquare, ListChecks, FileText, Settings2, ChartBar as BarChart3, GitBranch, Lock, Zap, Timer } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -588,7 +588,10 @@ export function InspectorPanel({ step, allSteps, personas, onClose, onUpdate }: 
             {/* Resume Target (for resume-point steps) */}
             {step.type === "resume-point" && (
               <div className="space-y-2">
-                <Label className="text-xs font-bold">Resume Target</Label>
+                <Label className="text-xs font-bold flex items-center gap-1.5">
+                  <GitBranch className="w-3.5 h-3.5 text-purple-500" />
+                  Resume Target
+                </Label>
                 <p className="text-[11px] text-muted-foreground -mt-1">
                   Which step in the main flow should this resume to?
                 </p>
@@ -604,6 +607,25 @@ export function InspectorPanel({ step, allSteps, personas, onClose, onUpdate }: 
                       <option key={s.id} value={s.id}>{s.title} ({STEP_TYPE_LABELS[s.type]})</option>
                     ))}
                 </select>
+                {step.resumeTargetStepId && (
+                  <div className="space-y-2 pl-4 border-l-2 border-purple-500/30">
+                    <div>
+                      <Label className="text-[10px]">Resume Label</Label>
+                      <Input
+                        value={step.resumeStyle?.label || ""}
+                        onChange={(e) => onUpdate(step.id, {
+                          resumeStyle: {
+                            type: "resume",
+                            label: e.target.value || undefined,
+                            dashed: step.resumeStyle?.dashed ?? true,
+                          }
+                        })}
+                        placeholder="e.g., Return to main flow"
+                        className="mt-0.5 h-7 text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -656,6 +678,44 @@ export function InspectorPanel({ step, allSteps, personas, onClose, onUpdate }: 
                         <option value="__end__">End Scenario</option>
                       </select>
                     </div>
+                    <div>
+                      <Label className="text-[10px]">Connection Type</Label>
+                      <select
+                        value={choice.connectionStyle?.type || "conditional"}
+                        onChange={(e) => {
+                          const type = e.target.value as ConnectionType;
+                          updateChoice(choice.id, {
+                            connectionStyle: {
+                              ...choice.connectionStyle,
+                              type,
+                              label: choice.connectionStyle?.label || choice.label,
+                            }
+                          });
+                        }}
+                        className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                      >
+                        {(["linear", "conditional", "interruption", "resume"] as ConnectionType[]).map(type => (
+                          <option key={type} value={type}>{CONNECTION_TYPE_LABELS[type]}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-[10px]">Arrow Label (optional)</Label>
+                      <Input
+                        value={choice.connectionStyle?.label || ""}
+                        onChange={(e) => {
+                          updateChoice(choice.id, {
+                            connectionStyle: {
+                              ...choice.connectionStyle,
+                              type: choice.connectionStyle?.type || "conditional",
+                              label: e.target.value || undefined,
+                            }
+                          });
+                        }}
+                        placeholder="Leave blank to use button text"
+                        className="mt-0.5 h-7 text-xs"
+                      />
+                    </div>
                   </div>
                 ))}
 
@@ -704,6 +764,48 @@ export function InspectorPanel({ step, allSteps, personas, onClose, onUpdate }: 
                 </div>
               </div>
             )}
+
+            {/* Interruption Connection */}
+            <div className="space-y-2 pt-1 border-t border-border">
+              <Label className="text-xs font-bold flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-destructive" />
+                Interruption Target
+              </Label>
+              <p className="text-[11px] text-muted-foreground -mt-1">
+                When this step triggers an interruption, which step should interrupt the flow?
+              </p>
+              <select
+                value={step.interruptionTriggerId ?? ""}
+                onChange={(e) => onUpdate(step.id, { interruptionTriggerId: e.target.value || undefined })}
+                className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+              >
+                <option value="">— No interruption —</option>
+                {allSteps
+                  .filter(s => s.column === "simulation" && s.id !== step.id)
+                  .map(s => (
+                    <option key={s.id} value={s.id}>{s.title} ({STEP_TYPE_LABELS[s.type]})</option>
+                  ))}
+              </select>
+              {step.interruptionTriggerId && (
+                <div className="space-y-2 pl-4 border-l-2 border-destructive/30">
+                  <div>
+                    <Label className="text-[10px]">Interruption Label</Label>
+                    <Input
+                      value={step.interruptionStyle?.label || ""}
+                      onChange={(e) => onUpdate(step.id, {
+                        interruptionStyle: {
+                          type: "interruption",
+                          label: e.target.value || undefined,
+                          dashed: step.interruptionStyle?.dashed ?? true,
+                        }
+                      })}
+                      placeholder="e.g., Radio Call"
+                      className="mt-0.5 h-7 text-xs"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Fallback next step */}
             <div className="pt-1">
