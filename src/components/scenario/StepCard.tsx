@@ -7,9 +7,12 @@ interface StepCardProps {
   isSelected: boolean;
   onSelect: () => void;
   onRemove: () => void;
+  onDragStart?: (stepId: string) => void;
+  onDragEnd?: () => void;
+  isDimmed?: boolean;
 }
 
-export function StepCard({ step, isSelected, onSelect, onRemove }: StepCardProps) {
+export function StepCard({ step, isSelected, onSelect, onRemove, onDragStart: onDragStartCallback, onDragEnd: onDragEndCallback, isDimmed }: StepCardProps) {
   const category = STEP_TYPE_CATEGORY[step.type];
   const badgeClass = CATEGORY_BADGE_CLASS[category];
   const isInterruption = step.type === "interruption";
@@ -20,11 +23,11 @@ export function StepCard({ step, isSelected, onSelect, onRemove }: StepCardProps
   const handleDragStart = (e: DragEvent) => {
     e.dataTransfer.setData("text/plain", step.id);
     e.dataTransfer.effectAllowed = "move";
-    (e.currentTarget as HTMLElement).style.opacity = "0.4";
+    onDragStartCallback?.(step.id);
   };
 
   const handleDragEnd = (e: DragEvent) => {
-    (e.currentTarget as HTMLElement).style.opacity = "1";
+    onDragEndCallback?.();
   };
 
   if (isInterruption) {
@@ -35,6 +38,8 @@ export function StepCard({ step, isSelected, onSelect, onRemove }: StepCardProps
         onDragEnd={handleDragEnd}
         onClick={onSelect}
         className={`relative group flex items-center gap-2 px-3 py-1.5 rounded-full border-2 border-dashed cursor-grab active:cursor-grabbing transition-all text-xs ${
+          isDimmed ? "opacity-30" : "opacity-100"
+        } ${
           isSelected
             ? "border-primary bg-primary/5 shadow-sm"
             : "border-[hsl(var(--step-border))] bg-card hover:border-primary/40"
@@ -63,6 +68,8 @@ export function StepCard({ step, isSelected, onSelect, onRemove }: StepCardProps
       onDragEnd={handleDragEnd}
       onClick={onSelect}
       className={`relative group rounded-lg border-2 cursor-grab active:cursor-grabbing transition-all ${
+        isDimmed ? "opacity-30" : "opacity-100"
+      } ${
         isIncomplete
           ? "border-destructive/60 bg-destructive/5"
           : isSelected

@@ -1,7 +1,7 @@
 import { useState, DragEvent, useCallback, useRef, useEffect } from "react";
 import { Step, ColumnId, StepType, ACTION_TILES, STEP_CATEGORIES_ORDER } from "@/types/workflow";
 import { StepCard } from "./StepCard";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface CanvasProps {
@@ -167,8 +167,10 @@ export function WorkflowCanvas({
   onAddStepToGrid,
 }: CanvasProps) {
   const [dropTarget, setDropTarget] = useState<{ col: ColumnId; index: number } | null>(null);
-  const [gridDropTarget, setGridDropTarget] = useState<{ x: number; y: number } | null>(null);
+  const [gridDropTarget, setGridDropTarget] = useState<{ x: number; y: number; isValid: boolean } | null>(null);
   const [pickerColumn, setPickerColumn] = useState<ColumnId | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [draggedStepId, setDraggedStepId] = useState<string | null>(null);
   const simGridRef = useRef<HTMLDivElement>(null);
 
   const stepsByColumn = (col: ColumnId) =>
@@ -187,7 +189,15 @@ export function WorkflowCanvas({
     return cards.length;
   }, []);
 
-  const getGridDropPosition = useCallback((e: DragEvent): { x: number; y: number } | null => {
+  const isCellOccupied = useCallback((x: number, y: number, excludeStepId?: string): boolean => {
+    return steps.some(step => {
+      if (excludeStepId && step.id === excludeStepId) return false;
+      if (step.column !== "simulation") return false;
+      return step.ui?.position?.x === x && step.ui?.position?.y === y;
+    });
+  }, [steps]);
+
+  const getGridDropPosition = useCallback((e: DragEvent): { x: number; y: number; isValid: boolean } | null => {
     if (!simGridRef.current) return null;
     const gridRect = simGridRef.current.getBoundingClientRect();
     const mouseX = e.clientX - gridRect.left;
@@ -199,8 +209,12 @@ export function WorkflowCanvas({
     const gridX = Math.floor(mouseX / cellFullWidth);
     const gridY = Math.floor(mouseY / cellFullHeight);
 
-    return { x: Math.max(0, gridX), y: Math.max(0, gridY) };
-  }, []);
+    const x = Math.max(0, gridX);
+    const y = Math.max(0, gridY);
+    const isValid = !isCellOccupied(x, y, draggedStepId ?? undefined);
+
+    return { x, y, isValid };
+  }, [isCellOccupied, draggedStepId]);
 
   const handleDragOver = useCallback((e: DragEvent, col: ColumnId) => {
     e.preventDefault();
@@ -228,6 +242,13 @@ export function WorkflowCanvas({
     const actionLabel = e.dataTransfer.getData("application/action-label");
 
     if (col === "simulation" && gridDropTarget) {
+      if (!gridDropTarget.isValid) {
+        setGridDropTarget(null);
+        setIsDragging(false);
+        setDraggedStepId(null);
+        return;
+      }
+
       if (actionType && actionLabel) {
         onAddStepToGrid(actionType as StepType, actionLabel, gridDropTarget.x, gridDropTarget.y);
       } else {
@@ -238,6 +259,8 @@ export function WorkflowCanvas({
       }
       onSelectColumn(col);
       setGridDropTarget(null);
+      setIsDragging(false);
+      setDraggedStepId(null);
       return;
     }
 
@@ -252,6 +275,8 @@ export function WorkflowCanvas({
     }
     onSelectColumn(col);
     setDropTarget(null);
+    setIsDragging(false);
+    setDraggedStepId(null);
   }, [gridDropTarget, getDropInfo, onMoveStep, onSelectColumn, onAddStepToColumn, onAddStepToGrid, onMoveStepToGrid]);
 
   const handleDragLeave = useCallback(() => {
@@ -305,42 +330,79 @@ export function WorkflowCanvas({
             }}
           >
             {Array.from({ length: gridRows }).map((_, row) =>
-              Array.from({ length: gridCols }).map((_, col) => (
-                <div
-                  key={`grid-${col}-${row}`}
-                  className="absolute border border-dashed border-border/30 rounded-md transition-colors"
-                  style={{
-                    left: `${col * (GRID_CELL_WIDTH + GRID_GAP)}px`,
-                    top: `${row * (GRID_CELL_HEIGHT + GRID_GAP)}px`,
-                    width: `${GRID_CELL_WIDTH}px`,
-                    height: `${GRID_CELL_HEIGHT}px`,
-                  }}
-                />
-              ))
+              Array.from({ length: gridCols }).map((_, col) => {
+                const isOccupied = isCellOccupied(col, row, draggedStepId ?? undefined);
+                const isHovered = gridDropTarget?.x === col && gridDropTarget?.y === row;
+                return (
+                  <div
+                    key={`grid-${col}-${row}`}
+                    className={`absolute border rounded-md transition-all ${
+                      isDragging
+                        ? isOccupied
+                          ? "border-destructive/40 bg-destructive/5 border-dashed"
+                          : "border-border/50 bg-accent/5 border-dashed"
+                        : "border-dashed border-border/30"
+                    } ${isHovered && !gridDropTarget.isValid ? "bg-destructive/10 border-destructive" : ""} ${
+                      isHovered && gridDropTarget.isValid ? "bg-primary/10 border-primary" : ""
+                    }`}
+                    style={{
+                      left: `${col * (GRID_CELL_WIDTH + GRID_GAP)}px`,
+                      top: `${row * (GRID_CELL_HEIGHT + GRID_GAP)}px`,
+                      width: `${GRID_CELL_WIDTH}px`,
+                      height: `${GRID_CELL_HEIGHT}px`,
+                    }}
+                  />
+                );
+              })
             )}
 
             <SimulationGridArrows steps={steps} />
 
-            {gridDropTarget && (
+            {gridDropTarget && gridDropTarget.isValid && (
               <div
-                className="absolute bg-primary/20 border-2 border-primary border-dashed rounded-md z-10"
+                className="absolute bg-primary/20 border-2 border-primary rounded-md z-10 animate-pulse"
                 style={{
                   left: `${gridDropTarget.x * (GRID_CELL_WIDTH + GRID_GAP)}px`,
                   top: `${gridDropTarget.y * (GRID_CELL_HEIGHT + GRID_GAP)}px`,
                   width: `${GRID_CELL_WIDTH}px`,
                   height: `${GRID_CELL_HEIGHT}px`,
                 }}
-              />
+              >
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-primary/30 flex items-center justify-center">
+                    <Plus className="w-5 h-5 text-primary" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {gridDropTarget && !gridDropTarget.isValid && (
+              <div
+                className="absolute bg-destructive/10 border-2 border-destructive border-dashed rounded-md z-10"
+                style={{
+                  left: `${gridDropTarget.x * (GRID_CELL_WIDTH + GRID_GAP)}px`,
+                  top: `${gridDropTarget.y * (GRID_CELL_HEIGHT + GRID_GAP)}px`,
+                  width: `${GRID_CELL_WIDTH}px`,
+                  height: `${GRID_CELL_HEIGHT}px`,
+                }}
+              >
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-destructive/20 flex items-center justify-center">
+                    <X className="w-5 h-5 text-destructive" />
+                  </div>
+                </div>
+              </div>
             )}
 
             {simSteps.map((step) => {
               const gridX = step.ui?.position?.x ?? 0;
               const gridY = step.ui?.position?.y ?? 0;
+              const isBeingDragged = draggedStepId === step.id;
               return (
                 <div
                   key={step.id}
                   data-step-id={step.id}
-                  className="absolute z-20"
+                  className="absolute z-20 transition-all duration-200"
                   style={{
                     left: `${gridX * (GRID_CELL_WIDTH + GRID_GAP)}px`,
                     top: `${gridY * (GRID_CELL_HEIGHT + GRID_GAP)}px`,
@@ -352,6 +414,15 @@ export function WorkflowCanvas({
                     isSelected={selectedStepId === step.id}
                     onSelect={() => onSelectStep(step.id)}
                     onRemove={() => onRemoveStep(step.id)}
+                    onDragStart={(id) => {
+                      setIsDragging(true);
+                      setDraggedStepId(id);
+                    }}
+                    onDragEnd={() => {
+                      setIsDragging(false);
+                      setDraggedStepId(null);
+                    }}
+                    isDimmed={isDragging && !isBeingDragged}
                   />
                 </div>
               );
