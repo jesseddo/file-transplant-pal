@@ -11,6 +11,11 @@ interface SceneContainerProps {
   onRemoveStep: (id: string) => void;
   onRenameScene: (sceneId: string, title: string) => void;
   onRemoveScene: (sceneId: string) => void;
+  onDragOverSide?: (side: 'left' | 'right') => void;
+  onDragLeaveSide?: () => void;
+  onDropOnSide?: (side: 'left' | 'right', e: DragEvent) => void;
+  showLeftDropZone?: boolean;
+  showRightDropZone?: boolean;
 }
 
 export function SceneContainer({
@@ -21,6 +26,11 @@ export function SceneContainer({
   onRemoveStep,
   onRenameScene,
   onRemoveScene,
+  onDragOverSide,
+  onDragLeaveSide,
+  onDropOnSide,
+  showLeftDropZone,
+  showRightDropZone,
 }: SceneContainerProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -35,10 +45,62 @@ export function SceneContainer({
     }
   };
 
+  const handleDragOverLeft = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDragOverSide?.('left');
+  };
+
+  const handleDragOverRight = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDragOverSide?.('right');
+  };
+
+  const handleDragLeave = (e: DragEvent) => {
+    e.stopPropagation();
+    onDragLeaveSide?.();
+  };
+
+  const handleDropLeft = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDropOnSide?.('left', e);
+  };
+
+  const handleDropRight = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDropOnSide?.('right', e);
+  };
+
   return (
-    <div
-      data-scene-id={scene.id}
-      className="rounded-lg border border-border bg-[hsl(var(--column-sim))] shadow-sm overflow-hidden"
+    <div className="relative" data-scene-id={scene.id}>
+      {/* Left drop zone */}
+      {showLeftDropZone && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-8 -ml-4 bg-primary/20 border-2 border-primary rounded-lg z-10 flex items-center justify-center"
+          onDragOver={handleDragOverLeft}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDropLeft}
+        >
+          <div className="w-1 h-16 bg-primary rounded-full" />
+        </div>
+      )}
+
+      {/* Right drop zone */}
+      {showRightDropZone && (
+        <div
+          className="absolute right-0 top-0 bottom-0 w-8 -mr-4 bg-primary/20 border-2 border-primary rounded-lg z-10 flex items-center justify-center"
+          onDragOver={handleDragOverRight}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDropRight}
+        >
+          <div className="w-1 h-16 bg-primary rounded-full" />
+        </div>
+      )}
+
+      <div className="rounded-lg border border-border bg-[hsl(var(--column-sim))] shadow-sm overflow-hidden"
     >
       {/* Scene header */}
       <div className="flex items-center gap-1.5 px-3 py-2 bg-[hsl(var(--column-header-sim))]">
@@ -107,6 +169,7 @@ export function SceneContainer({
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

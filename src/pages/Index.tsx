@@ -132,6 +132,20 @@ const ScenarioEditor = () => {
                 const newScene: Scene = { id: `scene_${sceneNextId++}`, title, order: scenes.length };
                 setScenes(prev => [...prev, newScene]);
               }}
+              onInsertScene={(title, afterSceneId, side) => {
+                const sortedScenes = [...scenes].sort((a, b) => a.order - b.order);
+                const sceneIndex = sortedScenes.findIndex(s => s.id === afterSceneId);
+                const insertIndex = side === 'left' ? sceneIndex : sceneIndex + 1;
+
+                const newSceneId = `scene_${sceneNextId++}`;
+                const newScene: Scene = { id: newSceneId, title, order: insertIndex };
+
+                sortedScenes.splice(insertIndex, 0, newScene);
+                sortedScenes.forEach((s, i) => { s.order = i; });
+                setScenes(sortedScenes);
+
+                return newSceneId;
+              }}
               onRenameScene={(sceneId, title) => {
                 setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, title } : s));
               }}

@@ -14,8 +14,9 @@ interface CanvasProps {
   onSelectColumn: (col: ColumnId) => void;
   onRemoveStep: (id: string) => void;
   onMoveStep: (stepId: string, toColumn: ColumnId, toIndex: number, sceneId?: string) => void;
-  onAddStepToColumn: (type: StepType, label: string, column: ColumnId, index: number, sceneId?: string) => void;
+  onAddStepToColumn: (type: StepType, label: string, column: ColumnId, index: number, sceneId?: string) => string;
   onAddScene: (title: string) => void;
+  onInsertScene: (title: string, afterSceneId: string, side: 'left' | 'right') => string;
   onRenameScene: (sceneId: string, title: string) => void;
   onRemoveScene: (sceneId: string) => void;
 }
@@ -189,10 +190,12 @@ export function WorkflowCanvas({
   onMoveStep,
   onAddStepToColumn,
   onAddScene,
+  onInsertScene,
   onRenameScene,
   onRemoveScene,
 }: CanvasProps) {
   const [dropTarget, setDropTarget] = useState<{ col: ColumnId; index: number } | null>(null);
+  const [sideDropTarget, setSideDropTarget] = useState<{ sceneId: string; side: 'left' | 'right' } | null>(null);
   const [pickerColumn, setPickerColumn] = useState<ColumnId | null>(null);
   const simContainerRef = useRef<HTMLDivElement>(null);
 
@@ -283,7 +286,40 @@ export function WorkflowCanvas({
 
   const handleDragLeave = useCallback(() => {
     setDropTarget(null);
+    setSideDropTarget(null);
   }, []);
+
+  const handleSceneSideDragOver = useCallback((sceneId: string, side: 'left' | 'right') => {
+    setSideDropTarget({ sceneId, side });
+    setDropTarget(null);
+  }, []);
+
+  const handleSceneSideDragLeave = useCallback(() => {
+    setSideDropTarget(null);
+  }, []);
+
+  const handleSceneSideDrop = useCallback((sceneId: string, side: 'left' | 'right', dragEvent: DragEvent) => {
+    const actionType = dragEvent.dataTransfer.getData("application/action-type");
+    const actionLabel = dragEvent.dataTransfer.getData("application/action-label");
+    const stepId = dragEvent.dataTransfer.getData("text/plain");
+
+    if (!actionType && !stepId) {
+      setSideDropTarget(null);
+      return;
+    }
+
+    const newSceneId = onInsertScene(`New Scene`, sceneId, side);
+
+    setTimeout(() => {
+      if (actionType && actionLabel) {
+        onAddStepToColumn(actionType as StepType, actionLabel, "simulation", 0, newSceneId);
+      } else if (stepId) {
+        onMoveStep(stepId, "simulation", 0, newSceneId);
+      }
+    }, 50);
+
+    setSideDropTarget(null);
+  }, [onInsertScene, onAddStepToColumn, onMoveStep]);
 
   const renderIntroOrReview = (col: typeof COLUMNS[number]) => {
     const colSteps = stepsByColumn(col.id);
@@ -426,6 +462,11 @@ export function WorkflowCanvas({
                         onRemoveStep={onRemoveStep}
                         onRenameScene={onRenameScene}
                         onRemoveScene={onRemoveScene}
+                        onDragOverSide={(side) => handleSceneSideDragOver(scene.id, side)}
+                        onDragLeaveSide={handleSceneSideDragLeave}
+                        onDropOnSide={(side, e) => handleSceneSideDrop(scene.id, side, e)}
+                        showLeftDropZone={sideDropTarget?.sceneId === scene.id && sideDropTarget?.side === 'left'}
+                        showRightDropZone={sideDropTarget?.sceneId === scene.id && sideDropTarget?.side === 'right'}
                       />
                     </div>
                   </div>
